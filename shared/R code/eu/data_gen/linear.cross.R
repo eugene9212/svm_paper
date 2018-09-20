@@ -1,0 +1,41 @@
+linear.cross <- function(n, t = seq(0, 1, by = 0.05), seed = 1)
+{
+  # set seed
+  set.seed(seed)
+  
+  # data storage(empty list)
+  u.list <- as.list(1:n)
+  
+  # parameter for linear model
+  slp1 <- slope1 <- 1 # ±×Àü3
+  slp2 <- slope2 <- -0.5 # -2
+  int1 <- 5 # 5
+  int2 <- 6 # 7
+  t <- matrix(t, 1, length(t))
+  
+  # create y
+  y <- rep(1, n)
+  y[1:(n/2)] <- -1
+  
+  # create x.list
+  for (i in 1:(n/2)) {
+    
+    temp1 <- slp1*t + int1
+    m.sample <- temp1 + rnorm(length(t), mean = 0, sd = 0.7) # sd = 0.3
+    
+    u.list[[i]] <- m.sample
+  }
+  
+  for (i in (n/2+1):n) {
+    
+    temp2 <- slp2*t + int2
+    p.sample <- temp2 + rnorm(length(t), mean = 0, sd = 0.7) # sd = 0.3
+    
+    u.list[[i]] <- p.sample
+  }
+  
+  x.list <- u.list
+  
+  obj <- list(x = x.list, y = y, t = t)
+  return(obj)
+}
