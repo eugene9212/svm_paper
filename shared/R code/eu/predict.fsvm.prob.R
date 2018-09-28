@@ -3,7 +3,6 @@
   test.n <- length(new.x)
   
   y <- obj$y ; train.n <- length(y)
-  # K <- obj$K
   lambda <- obj$lambda
   alpha <- obj$alpha
   alpha0 <- obj$alpha0
@@ -24,7 +23,7 @@
     coef <- xx %*% basis.mat %*% chol2inv(chol.obj) # ls
     return(coef)
   }
-  new.coef <- lapply(test.x, coef.fn, basis.mat = basis.mat) # Easily parellelizable!
+  new.coef <- lapply(new.x, coef.fn, basis.mat = basis.mat) # Easily parellelizable!
   
   # kernel matrix for new.x
   Phi <- inprod(basis.obj, basis.obj)
@@ -32,18 +31,7 @@
   coef.m <- matrix(unlist(coef), nrow = length(coef), byrow=T)
   coef.m.new <- matrix(unlist(new.coef), nrow = length(new.coef), byrow=T)
   new.K <- coef.m.new %*% Phi %*% t(coef.m)
-  
-  # new.K <- matrix(0, test.n, train.n)
-  # for (i in 1:test.n)
-  # { 
-  #   for (j in 1:train.n) 
-  #   {
-  #     c1 <- as.matrix(new.coef[[i]])
-  #     c2 <- as.matrix(coef[[j]])
-  #     new.K[i,j] <- c1 %*% Phi %*% t(c2) # %*% rep(1, L)  * weight # 여기 필요없는거 맞나??
-  #   }
-  # }
-  
+
   alpha0 <- matrix(alpha0, test.n, length(alpha0), byrow = T)
   new.gx <- (new.K %*% (alpha * y))
   new.fx <- (alpha0 + new.gx)/lambda
