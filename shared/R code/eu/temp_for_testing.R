@@ -135,6 +135,9 @@ for (ii in 1:n.test){
     if (length(check) > 1000) message("Warning : Iteration is over 1000.")
   }
   
+  p <- p*alpha
+  p <- p/sum(p)
+  
   result[[ii]] <-  p
 }
 
