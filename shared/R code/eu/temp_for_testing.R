@@ -95,6 +95,9 @@ diag(n) <- rep(0,K)
 result <- as.list(1:n.test)
 r <- matrix(0, K, K)
 
+
+####============================= Pairwise Calculation =====================================####
+###=============================== Algorithm 1. ============================================####
 for (ii in 1:n.test){
   # ii <- 1
   r <- matrix(0, K, K)
@@ -138,6 +141,66 @@ for (ii in 1:n.test){
   p <- p*alpha
   p <- p/sum(p)
   
+  result[[ii]] <-  p
+}
+
+
+####============================= Pairwise Calculation =====================================####
+###=============================== Algorithm 2. ============================================####
+
+# create pairwise n matrix
+n <- matrix(0, K, K) # n
+n[upper.tri(n)] <- c(length(train.y.12), # n12
+                     length(train.y.13), # n13
+                     length(train.y.23)) # n23
+n[lower.tri(n)] <- t(n)[lower.tri(n)]
+diag(n) <- rep(0,K)
+
+result <- as.list(1:n.test)
+r <- matrix(0, K, K)
+
+for (ii in 1:n.test){
+  # ii <- 1
+  r <- matrix(0, K, K)
+  r[lower.tri(r)] <- c(obj212$prob[ii], # r21
+                       obj213$prob[ii], # r31
+                       obj223$prob[ii]) # r32
+  r[upper.tri(r)] <- 1-c(obj212$prob[ii], # r12
+                         obj213$prob[ii], # r13
+                         obj223$prob[ii]) # r23
+  ## Algorithm2.
+  ### Create Q matrix
+  for(i in 1:K){
+    for(j in 1:K){
+      Q[i,j] <- -r[j,i]*r[i,j]
+    }
+  }
+  diage(Q) <- colSums(r^2)
+  
+  ### (1) Initialize P
+  p <- matrix(rep(1/K),K)
+  ### (2) Repeat (t = 1, 2, 3, ..., K, 1, ...)
+  t <- 1
+  while(true){
+    a <- 1/Q[t,t]
+    b <- t(p) %*% Q %*% t
+    p[t,] <- a * (Q[t,]*p  + b)
+    
+    ## normalize
+    p <- p/sum(p)
+    
+    ## Condition (21) check
+    tmp <- Q %*% p
+    tmp2 <- outer(tmp, tmp, "-")
+    tmp3 <- tmp2[upper.tri(tmp2)]
+    if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-08) break
+    
+    ## re-indexing t
+    if (t == K) t <- 1
+    else t <- (t + 1)
+  }
+  
+  # Save results
   result[[ii]] <-  p
 }
 
