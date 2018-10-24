@@ -5,8 +5,8 @@ library(mvtnorm)
 library(fda)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
-source('eu/data_gen/multiclass/linear.par.K.R')    # linear with parallel        (beta)
-source('eu/data_gen/multiclass/gp.1dim.I.K.R')
+source('eu/data_gen/multiclass/class.3.R')
+source('eu/data_gen/multiclass/class.4.R')
 
 source('eu/fsvm.prob.R')
 source('eu/predict.fsvm.prob.R')
@@ -26,29 +26,17 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 
 # set up
-t <- seq(0, 1, by = 0.05)
+t <- seq(0, 1, by = 0.03)
 L <- 10
-beta <- 1
-K <- 3
+error <- 0.9
 
 n.train <- 90
 n.test <- 30
 n <- n.train + n.test
 
 # Data generation
-# data <- linear.par3(n, beta, t = t, seed = 1)
-data <- gp.1dim.I.K(n, beta, K, t = t, seed = 1)
-# plot data_gen
-idx1 <- which(data$y == 1)
-idx2 <- which(data$y == 2)
-idx3 <- which(data$y == 3)
-
-a <- c()
-for (i in 1:n) a <- c(a, unlist(data$x[[i]]))
-plot(t, data$x[[1]], ylim = c(min(a),max(a)))
-for (i in idx1[1:20]) lines(t, data$x[[i]], col = 1)
-for (i in idx2[1:20]) lines(t, data$x[[i]], col = 2)
-for (i in idx3[1:20]) lines(t, data$x[[i]], col = 3)
+data <- class.3(n, error, t = t, seed = 1); K <- 3
+# data <- class.4(n, error, t = t, seed = 1); K <- 4
 
 id <- sample(1:n, n.train)
 
@@ -84,6 +72,11 @@ obj212 <- predict.fsvm.prob(obj12, test.x)
 obj213 <- predict.fsvm.prob(obj13, test.x)
 obj223 <- predict.fsvm.prob(obj23, test.x)
 
+# Save Data
+save(obj212, obj213, obj223, file="C:/Users/eugene/Desktop/class3.RData")
+
+####============================= Pairwise Calculation =====================================####
+###=============================== Algorithm 1. ============================================####
 # create pairwise n matrix
 n <- matrix(0, K, K) # n
 n[upper.tri(n)] <- c(length(train.y.12), # n12
@@ -95,9 +88,6 @@ diag(n) <- rep(0,K)
 result <- as.list(1:n.test)
 r <- matrix(0, K, K)
 
-
-####============================= Pairwise Calculation =====================================####
-###=============================== Algorithm 1. ============================================####
 for (ii in 1:n.test){
   # ii <- 1
   r <- matrix(0, K, K)
@@ -147,20 +137,26 @@ for (ii in 1:n.test){
 
 ####============================= Pairwise Calculation =====================================####
 ###=============================== Algorithm 2. ============================================####
+# load Data
+load(file="class3.RData")
+K <- 3
+n <- 120
+n12 <- 60 # length(train.y.12)
+n13 <- 60 # length(train.y.12)
+n23 <- 60 # length(train.y.12)
+n.test <- 30
 
 # create pairwise n matrix
 n <- matrix(0, K, K) # n
-n[upper.tri(n)] <- c(length(train.y.12), # n12
-                     length(train.y.13), # n13
-                     length(train.y.23)) # n23
+n[upper.tri(n)] <- c(n12,n13,n23) # n23
 n[lower.tri(n)] <- t(n)[lower.tri(n)]
 diag(n) <- rep(0,K)
 
 result <- as.list(1:n.test)
 r <- matrix(0, K, K)
 
-for (ii in 1:n.test){
-  # ii <- 1
+# Parellel computing
+working1<-function(ii){
   r <- matrix(0, K, K)
   r[lower.tri(r)] <- c(obj212$prob[ii], # r21
                        obj213$prob[ii], # r31
@@ -170,21 +166,22 @@ for (ii in 1:n.test){
                          obj223$prob[ii]) # r23
   ## Algorithm2.
   ### Create Q matrix
+  Q <- matrix(0,K,K)
   for(i in 1:K){
     for(j in 1:K){
       Q[i,j] <- -r[j,i]*r[i,j]
     }
   }
-  diage(Q) <- colSums(r^2)
+  diag(Q) <- colSums(r^2)
   
   ### (1) Initialize P
   p <- matrix(rep(1/K),K)
   ### (2) Repeat (t = 1, 2, 3, ..., K, 1, ...)
   t <- 1
-  while(true){
+  while(TRUE){
     a <- 1/Q[t,t]
-    b <- t(p) %*% Q %*% t
-    p[t,] <- a * (Q[t,]*p  + b)
+    b <- t(p) %*% Q %*% p
+    p[t,] <- a * (as.vector(Q[t,]) %*% p  + b)
     
     ## normalize
     p <- p/sum(p)
@@ -193,16 +190,41 @@ for (ii in 1:n.test){
     tmp <- Q %*% p
     tmp2 <- outer(tmp, tmp, "-")
     tmp3 <- tmp2[upper.tri(tmp2)]
-    if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-08) break
+    if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05) break
     
     ## re-indexing t
-    if (t == K) t <- 1
-    else t <- (t + 1)
+    if (t == K) {
+      t <- 1
+    } else {
+      t <- (t + 1)
+    }
   }
   
   # Save results
   result[[ii]] <-  p
 }
+
+# install.packages("doParallel")
+library(doParallel)
+# install.packages("foreach")
+library(foreach)
+
+# detectCores(all.tests = FALSE, logical = TRUE)
+
+cl<-makeCluster(20)  # choose the number of cores
+registerDoParallel(cl) # register clusters
+
+system.time(
+  mm<-foreach(ii=1:n.test) %dopar%
+    working1(ii)
+)
+
+result.list<-lapply(1:12,function(j) 
+  t(sapply(1:n.sim, function(k) mm[[k]][j,])))
+
+result.list
+
+# stopCluster(cl)
 
 a <- as.vector(rep(0,30))
 for (i in 1:30){
@@ -211,7 +233,6 @@ for (i in 1:30){
 
 a
 test.y
-
 
 
 
