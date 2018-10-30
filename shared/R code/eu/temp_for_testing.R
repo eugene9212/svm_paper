@@ -5,8 +5,8 @@ library(mvtnorm)
 library(fda)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
-source('eu/data_gen/multiclass/class.3.R')
-source('eu/data_gen/multiclass/class.4.R')
+source('eu/data_gen/multiclass/class.3.R')gp.1dim.I
+source('eu/data_gen/multiclass/gp.1dim.I.K.R')
 
 source('eu/fsvm.prob.R')
 source('eu/predict.fsvm.prob.R')
@@ -26,17 +26,18 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 
 # set up
+K <- 3
 t <- seq(0, 1, by = 0.03)
 L <- 10
-error <- 0.9
+error <- 0.1
 
 n.train <- 90
 n.test <- 30
 n <- n.train + n.test
 
 # Data generation
-data <- class.3(n, error, t = t, seed = 1); K <- 3
-# data <- class.4(n, error, t = t, seed = 1); K <- 4
+# data <- class.3(n, error, t = t, seed = 1); K <- 3
+data <- gp.1dim.I.K(n, beta = 1, K, t = t, seed = 1)
 
 id <- sample(1:n, n.train)
 
@@ -72,8 +73,94 @@ obj212 <- predict.fsvm.prob(obj12, test.x)
 obj213 <- predict.fsvm.prob(obj13, test.x)
 obj223 <- predict.fsvm.prob(obj23, test.x)
 
-# Save Data
-save(obj212, obj213, obj223, file="C:/Users/eugene/Desktop/class3.RData")
+# # Save Data
+# save(obj212, obj213, obj223, file="C:/Users/eugene/Desktop/class3_0.1.RData")
+
+####============================= Pairwise Calculation =====================================####
+###=============================== Algorithm 2. ============================================####
+# # load Data
+# load(file="class3_0.1.RData") # when error is 0.1
+# load(file="class3_0.5.RData") # when error is 0.5
+# load(file="class3_0.9.RData") # when error is 0.9
+# K <- 3
+# n <- 120
+# n.test <- 30
+# 
+result <- as.list(1:n.test)
+
+# Pairwise Coupling
+for(ii in 1:n.test){
+  r <- matrix(0, K, K)
+  r[lower.tri(r)] <- c(obj212$prob[ii], # r21
+                       obj213$prob[ii], # r31
+                       obj223$prob[ii]) # r32
+  r[upper.tri(r)] <- 1-c(obj212$prob[ii], # r12
+                         obj213$prob[ii], # r13
+                         obj223$prob[ii]) # r23
+  ## Algorithm2.
+  ### Create Q matrix
+  Q <- matrix(0,K,K)
+  for(i in 1:K){
+    for(j in 1:K){
+      Q[i,j] <- -r[j,i]*r[i,j]
+    }
+  }
+  diag(Q) <- colSums(r^2)
+  
+  ### (1) Initialize P
+  p <- matrix(rep(1/K),K) # 이렇게 초기화해도돼나Q
+  p[K] <- 1-sum(p[-K])
+  
+  ### (2) Repeat (t = 1, 2, 3, ..., K, 1, ...)
+  t <- 1
+  iter.n <- 1
+  
+  while(TRUE){
+    a <- 1/Q[t,t]
+    b <- t(p) %*% Q %*% p
+    p[t,] <- a * ( -as.vector(Q[t,-t]) %*% p[-t]  + b)
+    
+    ## normalize
+    p <- p/sum(p)
+    
+    ## Condition (21) check
+    tmp <- Q %*% p
+    tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
+    tmp3 <- tmp2[upper.tri(tmp2)]
+    print(c(tmp3,iter.n))
+    print(p)
+    idx <- which(max(p) == p)
+    c <- c(p[idx] - p[-idx])
+    # if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-03)
+    #   if(sum(p) == 1 && c > 0.99) break
+    if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05 && sum(p) == 1) break
+    
+    ## re-indexing t
+    if (t == K) {
+      t <- 1
+    } else {
+      t <- (t + 1)
+    }
+    
+    iter.n <- iter.n + 1 # counting the iteration
+  }
+  
+  # Save results
+  result[[ii]] <- list(p = p, iter = iter.n, Q = Q)
+}
+
+result[[1]]$p
+test.y
+
+p.class <- c()
+pred.p <- c()
+
+for (i in 1:n.test){
+  p.class[i] <- which(max(result[[ii]]$p) == result[[ii]]$p)
+  pred.p[i] <- max(result[[ii]]$p)
+}
+
+test.y,p.class
 
 ####============================= Pairwise Calculation =====================================####
 ###=============================== Algorithm 1. ============================================####
@@ -135,74 +222,12 @@ for (ii in 1:n.test){
 }
 
 
-####============================= Pairwise Calculation =====================================####
-###=============================== Algorithm 2. ============================================####
-# load Data
-load(file="class3.RData")
-K <- 3
-n <- 120
-n12 <- 60 # length(train.y.12)
-n13 <- 60 # length(train.y.12)
-n23 <- 60 # length(train.y.12)
-n.test <- 30
 
-# create pairwise n matrix
-n <- matrix(0, K, K) # n
-n[upper.tri(n)] <- c(n12,n13,n23) # n23
-n[lower.tri(n)] <- t(n)[lower.tri(n)]
-diag(n) <- rep(0,K)
 
-result <- as.list(1:n.test)
-r <- matrix(0, K, K)
 
-# Parellel computing
-working1<-function(ii){
-  r <- matrix(0, K, K)
-  r[lower.tri(r)] <- c(obj212$prob[ii], # r21
-                       obj213$prob[ii], # r31
-                       obj223$prob[ii]) # r32
-  r[upper.tri(r)] <- 1-c(obj212$prob[ii], # r12
-                         obj213$prob[ii], # r13
-                         obj223$prob[ii]) # r23
-  ## Algorithm2.
-  ### Create Q matrix
-  Q <- matrix(0,K,K)
-  for(i in 1:K){
-    for(j in 1:K){
-      Q[i,j] <- -r[j,i]*r[i,j]
-    }
-  }
-  diag(Q) <- colSums(r^2)
-  
-  ### (1) Initialize P
-  p <- matrix(rep(1/K),K)
-  ### (2) Repeat (t = 1, 2, 3, ..., K, 1, ...)
-  t <- 1
-  while(TRUE){
-    a <- 1/Q[t,t]
-    b <- t(p) %*% Q %*% p
-    p[t,] <- a * (as.vector(Q[t,]) %*% p  + b)
-    
-    ## normalize
-    p <- p/sum(p)
-    
-    ## Condition (21) check
-    tmp <- Q %*% p
-    tmp2 <- outer(tmp, tmp, "-")
-    tmp3 <- tmp2[upper.tri(tmp2)]
-    if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05) break
-    
-    ## re-indexing t
-    if (t == K) {
-      t <- 1
-    } else {
-      t <- (t + 1)
-    }
-  }
-  
-  # Save results
-  result[[ii]] <-  p
-}
+
+
+
 
 # install.packages("doParallel")
 library(doParallel)
