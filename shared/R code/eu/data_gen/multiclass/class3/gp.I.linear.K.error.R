@@ -33,7 +33,7 @@ gp.I.linear.K.error <- function(n, error, beta, K, t = seq(0, 1, by = 0.05), see
     mu.t <- z.t <- matrix(0, 1, n.t)
     
     # mean vector of gaussian process
-    mu.t <- 3*t+1
+    mu.t <- t
     z.t <- rmvnorm(1, mu.t, Sigma)
     
     u.list[[i]] <- z.t

@@ -35,7 +35,7 @@ gp.I.crss.linear.3.error <- function(n, error, t = seq(0, 1, by = 0.05), seed = 
     mu.t <- z.t <- matrix(0, 1, n.t)
     
     # mean vector of gaussian process
-    mu.t <- 3*t+1
+    mu.t <- t
     z.t <- rmvnorm(1, mu.t, Sigma)
     
     x.list[[i]] <- z.t
@@ -45,7 +45,7 @@ gp.I.crss.linear.3.error <- function(n, error, t = seq(0, 1, by = 0.05), seed = 
     mu.t <- z.t <- matrix(0, 1, n.t)
     
     # mean vector of gaussian process
-    mu.t <- -3*t+4
+    mu.t <- -t+1
     z.t <- rmvnorm(1, mu.t, Sigma)
     
     x.list[[i]] <- z.t
@@ -55,7 +55,7 @@ gp.I.crss.linear.3.error <- function(n, error, t = seq(0, 1, by = 0.05), seed = 
     mu.t <- z.t <- matrix(0, 1, n.t)
     
     # mean vector of gaussian process
-    mu.t <- rep(3,n.t)
+    mu.t <- rep(0.5,n.t)
     z.t <- rmvnorm(1, mu.t, Sigma)
     
     x.list[[i]] <- z.t
