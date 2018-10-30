@@ -109,7 +109,7 @@ fsvm.prob <-
       fx.list[[ii]] <- fx
       gx.list[[ii]] <- gx
     }
-    ind <- which(CRE == min(CRE))
+    ind <- which(CRE == min(CRE))[1]
     opt.lambda <- lambda[ind]
     pi <- pi.list[[ind]]; pi.star <- pi.star.list[[ind]]; alpha0 <- alpha0.list[[ind]]
     alpha <- alpha.list[[ind]]; fx <- fx.list[[ind]]; gx <- gx.list[[ind]]
