@@ -38,11 +38,9 @@ error <- 0.1
 K <- 3
 
 # storage
-result <- as.list(1:n.sim)
-
 CRE.result<-matrix(0, n.sim, 1)
 pi.result <- as.list(1:n.sim)
-iter.result<-matrix(0, n.sim, 1)
+# iter.result<-matrix(0, n.sim, 1)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
@@ -53,9 +51,9 @@ for (iter in 1:n.sim) {
   
   # Data generation (3 methods)
   set.seed(iter)
-  data <- gp.I.crss.linear.3.error(n, error, t)
-  # data <- gp.I.linear.K.error(n, error, beta, K, t)
-  # data <- gp.I.nonlinear.3.error(n, error, t)
+  # data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
+  data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
+  # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -96,9 +94,11 @@ for (iter in 1:n.sim) {
   obj213 <- predict.fsvm.prob(obj13, test.x)
   obj223 <- predict.fsvm.prob(obj23, test.x)
   
-  result[[iter]] <- as.list(1:n.test)
-  
   # 시뮬레이션 1번=test sample은 n.test개. 따라서 p도 시뮬 한번 당 n.test개 나옴 -------------------#
+  # 시뮬당 저장공간 생성
+  pi.one.simul <- matrix(0, n.test, K)
+  test.y.one.simul <- matrix(test.y, n.test, 1)
+  
   # Pairwise Coupling
   for(ii in 1:n.test){
     r <- matrix(0, K, K)
@@ -141,8 +141,8 @@ for (iter in 1:n.sim) {
       tmp <- Q %*% p
       tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
       tmp3 <- tmp2[upper.tri(tmp2)]
-      print(c(tmp3,iter.n))
-      print(p)
+      # print(c(tmp3,iter.n))
+      # print(p)
       idx <- which(max(p) == p)
       c <- c(p[idx] - p[-idx])
       
@@ -155,28 +155,26 @@ for (iter in 1:n.sim) {
         t <- (t + 1)
       }
       
-      iter.n <- iter.n + 1 # counting the iteration
+      # iter.n <- iter.n + 1 # counting the iteration
     }
     
-    pi.result[ii,] <- p
-    iter.nn[ii,] <- iter.n
+    pi.one.simul[ii,] <- p
     
-    # delta = 1.0e-8
-    # CRE <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(prob) + 1/2*(1-test.y)*log(1-prob)))
-    CRE.nn[ii,] <- c(CRE)
   } #--- End of n.test loop ------------------------------------------------------------------------#
   
   # 시뮬레이션 1번=test sample은 n.test개. 따라서 p도 시뮬 한번 당 n.test개 나옴 -------------------#
     
   # Save results
-  # pi.star
-  pi.result[[iter]] <- pi.result
-  
-  # iter
-  iter.result[[iter]] <- iter.nn
-  
   # CRE 
-  CRE.result[[iter]] <- CRE.nn
+  s <- c()
+  for (k in 1:n.test){
+    s <- c(s,-log(pi.one.simul[k,test.y[k]]))
+  }
+  CRE <- sum(s)
+  CRE.result[iter] <- CRE
+  
+  # pi.star
+  pi.result[[iter]] <- pi.one.simul
 }
 
 
