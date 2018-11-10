@@ -51,20 +51,26 @@ for (iter in 1:n.sim) {
   print(iter)
   
   #### Transform train.x and train.y
-  X <- train.x
-  x.matrix <- matrix(unlist(X), nrow = length(X), byrow = T)
-  D <- list("data" = x.matrix, "argvals" = t, rangeval = rangeval)
-  attr(D, "class") <- "fdata"
+  xx <- train.x
+  x.matrix <- matrix(unlist(xx), nrow = length(xx), byrow = T) # Transform X into matrix form
+  D <- list("data" = x.matrix, "argvals" = t, rangeval = rangeval) # Create D list
+  attr(D, "class") <- "fdata" # Assign attribute of D to fdata
   
-  Y <- train.y; index <- Y < 0; Y[index] = 0
-  dataf <- as.data.frame(Y)
+  Y <- train.y
+  index <- Y < 0
+  Y[index] = 0 # Chane y value into 1 or 0 (for logistic)
+  dataf <- as.data.frame(Y) # Transforn Y into data.frame form
   
-  basis.obj <- create.bspline.basis(rangeval, 10) # L : number of basis
-  basis.x <- list("x"=basis.obj)
+  basis.obj1 <- create.bspline.basis(range(t), 9) # Create 10, b spline obj
+  basis.obj2 <- create.bspline.basis(range(t), 10) # Create 10, b spline obj
+  basis.x <- list("x"=basis.obj1)
+  basis.b <- list("x"=basis.obj2)
   f <- Y ~ x
-  ldata <- list("df"=dataf,"x"=D)
-  res <- fregre.glm(f, family=binomial(link = "logit"), data=ldata, basis.x=basis.x)
+  ldata <- list("df"=dataf,"x"=D) # df : Y data.frame / x : D(list of x values and fdata attribute)
+  res <- fregre.glm(f, family=binomial(link = "logit"), data=ldata, basis.x, basis.b)
+  res <- fregre.glm(f, family=multinom(K=3), data=ldata, basis.x, basis.b)
   
+  summary(res)
   # Predict
   test.X <- test.x
   test.x.matrix <- matrix(unlist(test.X), nrow = length(test.X), byrow = T)
