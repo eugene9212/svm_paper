@@ -40,19 +40,21 @@ K <- 3
 # storage
 CRE.result<-matrix(0, n.sim, 1)
 pi.result <- as.list(1:n.sim)
+ans <- as.list(1:n.sim)
 # iter.result<-matrix(0, n.sim, 1)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
-  # iter<-47
+  # iter<-3
+  # t <- seq(0, 1, by = 0.05)
   n.train <- 60
   n.test <- 30
   n <- n.train + n.test
   
   # Data generation (3 methods)
   set.seed(iter)
-  # data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
-  data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
+  data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
+  # data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
   # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
   
   id <- sample(1:n, n.train)
@@ -65,10 +67,10 @@ for (iter in 1:n.sim) {
   print(iter)
   
   # Divide train set pairwise
-  # Extract index
   trn.idx12 <- which(train.y==1 | train.y==2)
   trn.idx13 <- which(train.y==1 | train.y==3)
   trn.idx23 <- which(train.y==2 | train.y==3)
+  
   # train.x
   train.x.12 <- train.x[trn.idx12]
   train.x.13 <- train.x[trn.idx13]
@@ -125,14 +127,14 @@ for (iter in 1:n.sim) {
     p <- matrix(rep(1/K),K) # 이렇게 초기화해도돼나Q
     p[K] <- 1-sum(p[-K])
     
-    ### (2) Repeat (t = 1, 2, 3, ..., K, 1, ...)
-    t <- 1
+    ### (2) Repeat (tt = 1, 2, 3, ..., K, 1, ...)
+    tt <- 1
     iter.n <- 1
     
     while(TRUE){
-      a <- 1/Q[t,t]
+      a <- 1/Q[tt,tt]
       b <- t(p) %*% Q %*% p
-      p[t,] <- a * ( -as.vector(Q[t,-t]) %*% p[-t]  + b)
+      p[tt,] <- a * ( -as.vector(Q[tt,-tt]) %*% p[-tt]  + b)
       
       ## normalize
       p <- p/sum(p)
@@ -141,18 +143,16 @@ for (iter in 1:n.sim) {
       tmp <- Q %*% p
       tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
       tmp3 <- tmp2[upper.tri(tmp2)]
-      # print(c(tmp3,iter.n))
-      # print(p)
       idx <- which(max(p) == p)
       c <- c(p[idx] - p[-idx])
       
       if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05 && sum(p) == 1) break
       
       ## re-indexing t
-      if (t == K) {
-        t <- 1
+      if (tt == K) {
+        tt <- 1
       } else {
-        t <- (t + 1)
+        tt <- (tt + 1)
       }
       
       # iter.n <- iter.n + 1 # counting the iteration
@@ -173,9 +173,37 @@ for (iter in 1:n.sim) {
   CRE <- sum(s)
   CRE.result[iter] <- CRE
   
+  # Answer
+  ans[[iter]] <- test.y
+  
   # pi.star
   pi.result[[iter]] <- pi.one.simul
 }
+
+# Performance #
+CRE.result
+mean(CRE.result)
+
+ans
+
+class.1 <- c()
+class.2 <- c()
+class.3 <- c()
+for(i in 1:n.sim){
+  for(j in 1:n.test){
+    idx1 <- which(ans[[i]] == 1)
+    idx2 <- which(ans[[i]] == 2)
+    idx3 <- which(ans[[i]] == 3)
+    
+    class.1 <- c(class.1, pi.result[[i]][idx1,1])
+    class.2 <- c(class.2, pi.result[[i]][idx2,2])
+    class.3 <- c(class.3, pi.result[[i]][idx3,3])
+  }
+}
+
+boxplot(class.1)
+boxplot(class.2)
+boxplot(class.3)
 
 
 
