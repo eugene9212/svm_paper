@@ -28,22 +28,39 @@ gp.I.linear.K.error <- function(n, error, beta, K, t = seq(0, 1, by = 0.05), see
   
   x.list <- u.list <- as.list(1:n)
   
-  for (i in 1:n) {
-    
+  idx1 <- which(y==1)
+  idx2 <- which(y==2)
+  idx3 <- which(y==3)
+  
+  # x.list
+  for (i in idx1) {
     mu.t <- z.t <- matrix(0, 1, n.t)
     
     # mean vector of gaussian process
-    mu.t <- t
+    mu.t <- t+beta1[1]
     z.t <- rmvnorm(1, mu.t, Sigma)
     
-    u.list[[i]] <- z.t
+    x.list[[i]] <- z.t
   }
   
-  ## Create x.list
-  for (i in 1:K){
-    for (j in (num[i]+1):num[i+1]){
-      x.list[[j]] <-  u.list[[j]] + beta1[i]
-    }
+  for (i in idx2) {
+    mu.t <- z.t <- matrix(0, 1, n.t)
+    
+    # mean vector of gaussian process
+    mu.t <- t+beta1[2]
+    z.t <- rmvnorm(1, mu.t, Sigma)
+    
+    x.list[[i]] <- z.t
+  }
+  
+  for (i in idx3) {
+    mu.t <- z.t <- matrix(0, 1, n.t)
+    
+    # mean vector of gaussian process
+    mu.t <- t+beta1[3]
+    z.t <- rmvnorm(1, mu.t, Sigma)
+    
+    x.list[[i]] <- z.t
   }
   
   obj <- list(x = x.list, y = y, t = t)
