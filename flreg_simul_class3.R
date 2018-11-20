@@ -87,50 +87,157 @@ for (iter in 1:n.sim) {
   train.y.23 <- ifelse(train.y.23 == 3, 1, -1)
   
   #### Transform train.x and train.y
-  train.f.x.12 <- train.x.12
-  train.f.x.12.matrix <- matrix(unlist(train.f.x.12), nrow = length(train.f.x.12), byrow = T)
-  D12 <- list("data" = train.f.x.12.matrix, "argvals" = t, rangeval = rangeval)
-  attr(D12, "class") <- "fdata"
+  # train.x.12 -> train.fx12(fdata)
+  train.f.x.12.matrix <- matrix(unlist(train.x.12), nrow = length(train.x.12), byrow = T)
+  train.fx12 <- fdata(train.f.x.12.matrix,argvals=t,rangeval=range(t))
+  # train.x.13 -> train.fx13(fdata)
+  train.f.x.13.matrix <- matrix(unlist(train.x.13), nrow = length(train.x.13), byrow = T)
+  train.fx13 <- fdata(train.f.x.13.matrix,argvals=t,rangeval=range(t))
+  # train.x.23 -> train.fx23(fdata)
+  train.f.x.23.matrix <- matrix(unlist(train.x.23), nrow = length(train.x.23), byrow = T)
+  train.fx23 <- fdata(train.f.x.23.matrix,argvals=t,rangeval=range(t))
   
-  train.f.y.12 <- train.y.12; 
-  index12 <- train.f.y.12 < 0
-  train.f.y.12[index12] = 0
-  train.f.y.12 <- as.data.frame(train.f.y.12)
+  # train.y.12 -> train.fy12 (0,1)
+  train.fy12 <- train.y.12
+  index12 <- train.y.12 < 0
+  train.fy12[index12] = 0
+  train.fy12 <- as.data.frame(train.fy12) # transform y as data.frame structure
+  # train.y.13 -> train.fy13 (0,1)
+  train.fy13 <- train.y.13
+  index13 <- train.y.13 < 0
+  train.fy13[index13] = 0
+  train.fy13 <- as.data.frame(train.fy13) # transform y as data.frame structure
+  # train.y.23 -> train.fy23 (0,1)
+  train.fy23 <- train.y.23
+  index23 <- train.y.23 < 0
+  train.fy23[index23] = 0
+  train.fy23 <- as.data.frame(train.fy23) # transform y as data.frame structure
   
-  basis.obj <- create.bspline.basis(rangeval, 10) # L : number of basis
-  basis.x <- list("x"=basis.obj)
-  f12 <- train.f.y.12 ~ x
-  ldata12 <- list("df"=train.f.y.12,"x"=D12)
+  #### FDA
+  nbasis.x=L # create basis used for fdata or fd covariates.
+  nbasis.b=L  # create basis used for beta parameter estimation.
   
+  # create basis
+  basis1=create.bspline.basis(rangeval=range(t),nbasis=nbasis.x)
+  basis2=create.bspline.basis(rangeval=range(t),nbasis=nbasis.b)
   
-  ####=======================     train data      ===============================####
-  res12 <- fregre.glm(f12, family=multinomial(link = "logit"), data=ldata12, basis.x=basis.x,maxit = 1000)
+  # formula
+  f12=train.fy12~x 
+  f13=train.fy13~x 
+  f23=train.fy23~x 
   
-  # Predict
-  test.X <- test.x
-  test.x.matrix <- matrix(unlist(test.X), nrow = length(test.X), byrow = T)
-  test.D <- list("data" = test.x.matrix, "argvals" = t, rangeval = rangeval)
-  attr(test.D, "class") <- "fdata"
+  # Create basis n ldata before fitting the model
+  basis.x=list("x"=basis1) # has to be the same name
+  basis.b=list("x"=basis2)
+  ldata12=list("df"=train.fy12,"x"=train.fx12)
+  ldata13=list("df"=train.fy13,"x"=train.fx13)
+  ldata23=list("df"=train.fy23,"x"=train.fx23)
   
-  test.Y <- test.y; index <- test.Y<0; test.Y[index] = 0
-  test.dataf <- as.data.frame(test.Y)
+  # Fit the model
+  res12=fregre.glm(f12,binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b)
+  res13=fregre.glm(f13,binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b)
+  res23=fregre.glm(f23,binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b)
+  summary(res12)
+  summary(res13)
+  summary(res23)
   
-  f <- test.Y ~ x
-  newldata <- list("df"=test.dataf,"x"=test.D)
+  ####=======================     test data      ===============================####
+  # test.x -> test.fx(fdata)
+  train.fx.matrix <- matrix(unlist(test.x), nrow = length(test.x), byrow = T)
+  test.fx <- fdata(train.fx.matrix, argvals=t, rangeval=range(t))
   
-  # predict(res, newldata, type = "response")
-  pred.glm <- predict.fregre.glm(res, newldata)
-  prob <- pred.glm
+  # create newldata
+  newldata <- list("x"=test.fx)
   
-  boxplot(prob[test.Y == 1], prob[test.Y == 0], xlab=paste("logit",iter), ylim=c(0,1))
+  # predict
+  pred.glm12 <- predict.fregre.glm(res12, newldata)
+  pred.glm13 <- predict.fregre.glm(res13, newldata)
+  pred.glm23 <- predict.fregre.glm(res23, newldata)
   
-  # Criteria
-  CRE <- -1/length(test.Y)*(sum(test.Y*log(prob) + (1-test.Y)*log(1-prob)))
+  # 시뮬레이션 1번=test sample은 n.test개. 따라서 p도 시뮬 한번 당 n.test개 나옴 -------------------#
+  # 시뮬당 저장공간 생성
+  pi.one.simul <- matrix(0, n.test, K)
+  test.y.one.simul <- matrix(test.y, n.test, 1)
   
-  pi.result[[iter]] <- prob
+  # Pairwise Coupling
+  for(ii in 1:n.test){
+    print(ii)
+    r <- matrix(0, K, K)
+    r[lower.tri(r)] <- c(pred.glm12[ii], # r21
+                         pred.glm13[ii], # r31
+                         pred.glm23[ii]) # r32
+    r[upper.tri(r)] <- t(r)[upper.tri(r)]
+    one <- matrix(1,K,K)
+    one[lower.tri(one, diag=TRUE)] <- 0
+    r <- one - r
+    r <- abs(r)
+    
+    ## Algorithm2.
+    ### Create Q matrix
+    Q <- matrix(0,K,K)
+    for(i in 1:K){
+      for(j in 1:K){
+        Q[i,j] <- -r[j,i]*r[i,j]
+      }
+    }
+    diag(Q) <- colSums(r^2)
+    
+    ### (1) Initialize P
+    p <- matrix(rep(1/K),K) # 이렇게 초기화해도돼나Q
+    p[K] <- 1-sum(p[-K])
+    
+    ### (2) Repeat (tt = 1, 2, 3, ..., K, 1, ...)
+    tt <- 1
+    iter.n <- 1
+    
+    while(TRUE){
+      print(iter.n)
+      a <- 1/Q[tt,tt]
+      b <- t(p) %*% Q %*% p
+      p[tt,] <- a * ( -as.vector(Q[tt,-tt]) %*% p[-tt]  + b)
+      
+      ## normalize
+      p <- p/sum(p)
+      
+      ## Condition (21) check
+      tmp <- Q %*% p
+      tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
+      tmp3 <- tmp2[upper.tri(tmp2)]
+      idx <- which(max(p) == p)
+      c <- c(p[idx] - p[-idx])
+      
+      if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05 && sum(p) == 1) break
+      
+      ## re-indexing t
+      if (tt == K) {
+        tt <- 1
+      } else {
+        tt <- (tt + 1)
+      }
+      
+      iter.n <- iter.n + 1 # counting the iteration
+    }
+    
+    pi.one.simul[ii,] <- p
+    
+  } #--- End of n.test loop ------------------------------------------------------------------------#
   
-  # results  
-  CRE.result[iter,] <- c(CRE) 
+  # 시뮬레이션 1번=test sample은 n.test개. 따라서 p도 시뮬 한번 당 n.test개 나옴 -------------------#
+  
+  # Save results
+  # CRE 
+  s <- c()
+  for (k in 1:n.test){
+    s <- c(s,-log(pi.one.simul[k,test.y[k]]))
+  }
+  CRE <- sum(s)
+  CRE.result[iter] <- CRE
+  
+  # Answer
+  ans[[iter]] <- test.y
+  
+  # pi.star
+  pi.result[[iter]] <- pi.one.simul 
 }
 
 mean(CRE.result)
