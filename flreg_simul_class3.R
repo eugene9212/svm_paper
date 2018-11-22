@@ -46,7 +46,7 @@ pi.result <- as.list(1:n.sim)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
-  # iter<-47
+  # iter<-3
   n.train <- 60
   n.test <- 30
   n <- n.train + n.test
@@ -129,14 +129,19 @@ for (iter in 1:n.sim) {
   # Create basis n ldata before fitting the model
   basis.x=list("x"=basis1) # has to be the same name
   basis.b=list("x"=basis2)
+  
+  # as.factor
+  train.fy12 <- as.factor(train.fy12$train.fy12)
+  train.fy13 <- as.factor(train.fy13$train.fy13)
+  train.fy23 <- as.factor(train.fy23$train.fy23)
   ldata12=list("df"=train.fy12,"x"=train.fx12)
   ldata13=list("df"=train.fy13,"x"=train.fx13)
   ldata23=list("df"=train.fy23,"x"=train.fx23)
   
   # Fit the model
-  res12=fregre.glm(f12,binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b)
-  res13=fregre.glm(f13,binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b)
-  res23=fregre.glm(f23,binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b)
+  res12=fregre.glm(f12,binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  res13=fregre.glm(f13,binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  res23=fregre.glm(f23,binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
   summary(res12)
   summary(res13)
   summary(res23)
@@ -151,8 +156,14 @@ for (iter in 1:n.sim) {
   
   # predict
   pred.glm12 <- predict.fregre.glm(res12, newldata)
+  # test.y
+  # round(pred.glm12)
   pred.glm13 <- predict.fregre.glm(res13, newldata)
+  # test.y
+  # round(pred.glm13)
   pred.glm23 <- predict.fregre.glm(res23, newldata)
+  # test.y
+  # round(pred.glm23)
   
   # 시뮬레이션 1번=test sample은 n.test개. 따라서 p도 시뮬 한번 당 n.test개 나옴 -------------------#
   # 시뮬당 저장공간 생성
@@ -161,7 +172,7 @@ for (iter in 1:n.sim) {
   
   # Pairwise Coupling
   for(ii in 1:n.test){
-    print(ii)
+    # print(ii)
     r <- matrix(0, K, K)
     r[lower.tri(r)] <- c(pred.glm12[ii], # r21
                          pred.glm13[ii], # r31
@@ -191,7 +202,7 @@ for (iter in 1:n.sim) {
     iter.n <- 1
     
     while(TRUE){
-      print(iter.n)
+      # print(iter.n)
       a <- 1/Q[tt,tt]
       b <- t(p) %*% Q %*% p
       p[tt,] <- a * ( -as.vector(Q[tt,-tt]) %*% p[-tt]  + b)
@@ -203,10 +214,11 @@ for (iter in 1:n.sim) {
       tmp <- Q %*% p
       tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
       tmp3 <- tmp2[upper.tri(tmp2)]
-      idx <- which(max(p) == p)
-      c <- c(p[idx] - p[-idx])
+      # idx <- which(max(p) == p)
+      # c <- c(p[idx] - p[-idx]) n
       
-      if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05 && sum(p) == 1) break
+      if (abs(tmp3) < 1e-05 && sum(p) == 1) break
+      # if (length(unique(sign(tmp))) == 1 && abs(tmp3) < 1e-05 && sum(p) == 1) break
       
       ## re-indexing t
       if (tt == K) {
@@ -215,8 +227,12 @@ for (iter in 1:n.sim) {
         tt <- (tt + 1)
       }
       
+      if (iter.n == 1000) stop("Iteration reached 1000 and it didn't converge")
+      
       iter.n <- iter.n + 1 # counting the iteration
     }
+    
+    # warning
     
     pi.one.simul[ii,] <- p
     
@@ -234,7 +250,7 @@ for (iter in 1:n.sim) {
   CRE.result[iter] <- CRE
   
   # Answer
-  ans[[iter]] <- test.y
+  # ans[[iter]] <- test.y
   
   # pi.star
   pi.result[[iter]] <- pi.one.simul 
