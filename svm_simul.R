@@ -39,29 +39,31 @@ n.sim <- 50
 t <- seq(0, 1, by = 0.05)
 # lambda <- 0.5 # fsvm & pi.path
 L <- 10
-beta <- 1
+beta <- 0.5
 
 # storage
 CRE.result<-matrix(0, n.sim, 1)
 pi.result <- as.list(1:n.sim)
 lambda.result<-matrix(0, n.sim, 1)
+## for test.y
+ans <- as.list(1:n.sim)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
   # iter<-47
   n.train <- 50
-  n.test <- 40
+  n.test <- 30
   n <- n.train + n.test
   
   # Data generation (6 methods)
   set.seed(iter)
-  # data <- gp.1dim.I(n, beta, t = t, seed = iter)
+  data <- gp.1dim.I(n, beta, t = t, seed = iter)
   # data <- gp.1dim.cov1(n, beta, t = t, seed = iter)
   # data <- gp.1dim.sc(n, t = t, seed = iter)
   # data <- gp.1dim.AR(n, beta, p = 5, rho = 0.5, t = t, seed = iter)
   # data <- sc(n, t = t, seed = iter)
   # data <- ss(n, beta, t = t, seed = iter)
-  data <- linear.cross(n, t = t, seed = iter)
+  # data <- linear.cross(n, t = t, seed = iter)
   # data <- linear.par(n, beta, t = t, seed = iter)
   
   id <- sample(1:n, n.train)
@@ -92,13 +94,33 @@ for (iter in 1:n.sim) {
   # pi.star
   pi.result[[iter]] <- prob
   
+  # Answer
+  ans[[iter]] <- test.y
+  
   # results  
   CRE.result[iter,] <- c(CRE)
 }
-# pi.result[[1]]
+
+# Cross Entropy 
 mean(CRE.result)
 # median(CRE.result)
 # sum(CRE.result)
+
+# Accuracy
+pi.result1 <- as.list(1:n.sim)
+for (k in 1:n.sim){
+  pi.result1[[k]] <- ifelse(pi.result[[k]]<0.5,-1,1)
+}
+
+svm <- matrix(0, ncol = n.sim)
+for(k in 1:n.sim){
+  svm[,k] <- sum(pi.result1[[k]] == ans[[k]])
+}
+
+# total number each sim, 30 test.n
+mean(svm/30)
+
+paste0("The accuracy of FSVM is ", round(svm/(n.sim*n.test),digits = 3))
 
 
 
