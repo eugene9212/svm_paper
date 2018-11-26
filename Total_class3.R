@@ -36,8 +36,9 @@ t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
 beta <- 1
-error <- 1
+error <- 2
 K <- 3
+max.iter <- 100
 
 # storage
 ## for test.y
@@ -58,9 +59,9 @@ for (iter in 1:n.sim) {
   
   # Data generation (3 methods)
   set.seed(iter)
-  data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
   # data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
-  # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
+  # data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
+  data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -136,24 +137,28 @@ for (iter in 1:n.sim) {
   basis.b=list("x"=basis2)
   
   # as.factor
-  train.fy12 <- as.factor(train.fy12$train.fy12)
-  train.fy13 <- as.factor(train.fy13$train.fy13)
-  train.fy23 <- as.factor(train.fy23$train.fy23)
+  train.fy12 <- train.fy12$train.fy12
+  train.fy13 <- train.fy13$train.fy13
+  train.fy23 <- train.fy23$train.fy23
+  # train.fy12 <- as.factor(train.fy12$train.fy12)
+  # train.fy13 <- as.factor(train.fy13$train.fy13)
+  # train.fy23 <- as.factor(train.fy23$train.fy23)
   ldata12=list("df"=train.fy12,"x"=train.fx12)
   ldata13=list("df"=train.fy13,"x"=train.fx13)
   ldata23=list("df"=train.fy23,"x"=train.fx23)
   
   # Fit the model
-  res12=fregre.glm(f12,binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
-  res13=fregre.glm(f13,binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
-  res23=fregre.glm(f23,binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  res12=fregre.glm(f12,familiy=binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  res13=fregre.glm(f13,familiy=binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  res23=fregre.glm(f23,familiy=binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
   # summary(res12)
   # summary(res13)
   # summary(res23)
-  
+  # ?fregre.glm
   # basis fitting
-  # res.basis <- fregre.basis(train.fx12, as.numeric(as.vector(train.fy12)), basis.x=basis1, basis.b=basis2)
+  # res.basis <- fregre.basis(train.fx12, train.fy12, basis.x=basis1, basis.b=basis2)
   # summary(res.basis)
+  # ?fregre.basis
   
   ####=======================     test data      ===============================####
   # test.x -> test.fx(fdata)
@@ -210,7 +215,7 @@ for (iter in 1:n.sim) {
     tt <- 1
     iter.n <- 1
     
-    while(TRUE){
+    while(iter <= max.iter){
       # print(iter.n)
       a <- 1/Q[tt,tt]
       b <- t(p) %*% Q %*% p
@@ -237,12 +242,13 @@ for (iter in 1:n.sim) {
         tt <- (tt + 1)
       }
       
-      if (iter.n == 1000) stop("Iteration reached 1000 and it didn't converge")
+      # if (iter.n == 1000) stop("Iteration reached 1000 and it didn't converge")
       
       iter.n <- iter.n + 1 # counting the iteration
     }
     
     # warning
+    if (iter.n == max.iter) warning("maximum iteration reached!")
     
     pi.fl.one.simul[ii,] <- p
     
@@ -296,7 +302,7 @@ for (iter in 1:n.sim) {
     tt <- 1
     iter.n <- 1
     
-    while(TRUE){
+    while(iter.n <= max.iter){
       a <- 1/Q[tt,tt]
       b <- t(p) %*% Q %*% p
       p[tt,] <- a * ( -as.vector(Q[tt,-tt]) %*% p[-tt]  + b)
@@ -322,8 +328,10 @@ for (iter in 1:n.sim) {
         tt <- (tt + 1)
       }
       
-      # iter.n <- iter.n + 1 # counting the iteration
+      iter.n <- iter.n + 1 # counting the iteration
     }
+    
+    if (iter.n == max.iter) warning("maximum iteration reached!")
     
     pi.svm.one.simul[ii,] <- p
     
@@ -366,15 +374,15 @@ for (iter in 1:n.sim) {
 # Check warnings
 summary(warnings())
 
-# Cross Entropy
-mean(CRE.fl.result)
-mean(CRE.svm.result)
-median(CRE.fl.result)
-median(CRE.svm.result)
+# Critereon (1) Cross Entropy
+fl.cre<-round(mean(CRE.fl.result),digits = 3)
+svm.cre<-round(mean(CRE.svm.result),digits = 3)
+# median(CRE.fl.result)
+# median(CRE.svm.result)
 # sum(CRE.fl.result)
 # sum(CRE.svm.result)
 
-# Accuracy
+# Critereon (2) Accuracy
 svm <- matrix(0, ncol = n.sim)
 flog <- matrix(0, ncol = n.sim)
 for(k in 1:n.sim){
@@ -383,20 +391,26 @@ for(k in 1:n.sim){
 }
 
 # total number : 50 * 30 = 1500
-svm
-flog
+svm.acc <- round(mean(svm/n.test), digits = 3)
+fl.acc <- round(mean(flog/n.test), digits = 3)
 
-paste0("The accuracy of FSVM is ", round(svm/(n.sim*n.test),digits = 3))
-paste0("The accuracy of Flogistic is ", round(flog/(n.sim*n.test),digits = 3))
+# print
+paste0("--------------Simulation Result with Error ",error,"--------------")
+paste0("The CRE of Flogistic is ", fl.cre)
+paste0("The CRE of FSVM is ", svm.cre)
+paste0("The accuracy of Flogistic is ", fl.acc)
+paste0("The accuracy of FSVM is ", svm.acc)
 
-pi.svm.result # n.sim개의 list, with 30 by 3 dimension
-pi.fl.result  # n.sim개의 list, with 30 by 3 dimension
-ans # n.sim개의 list, with 1 by 30 dimension
 
-# Check the results
-round(pi.svm.result[[1]],digit=2)
-round(pi.fl.result[[1]],digit=2)
-ans[[1]]
-apply(pi.fl.result[[1]],1,which.max)
-apply(pi.svm.result[[1]],1,which.max)
+# ## Detailed Check
+# pi.svm.result # n.sim개의 list, with 30 by 3 dimension
+# pi.fl.result  # n.sim개의 list, with 30 by 3 dimension
+# ans # n.sim개의 list, with 1 by 30 dimension
+# 
+# # Check the results
+# round(pi.svm.result[[1]],digit=2)
+# round(pi.fl.result[[1]],digit=2)
+# ans[[1]]
+# apply(pi.fl.result[[1]],1,which.max)
+# apply(pi.svm.result[[1]],1,which.max)
 
