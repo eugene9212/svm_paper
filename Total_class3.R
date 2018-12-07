@@ -43,6 +43,7 @@ max.iter <- 100
 # storage
 ## for test.y
 ans <- as.list(1:n.sim)
+ans.p <- as.list(1:n.sim)
 ## for Functional logistic
 CRE.fl.result<-matrix(0, n.sim, 1)
 pi.fl.result <- as.list(1:n.sim)
@@ -59,9 +60,9 @@ for (iter in 1:n.sim) {
   
   # Data generation (3 methods)
   set.seed(iter)
-  # data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
+  data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
   # data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
-  data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
+  # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -69,6 +70,8 @@ for (iter in 1:n.sim) {
   train.y <- data$y[id]
   test.x <- data$x[-id]
   test.y <- data$y[-id]
+  
+  true.p <- data$true.p[-id]
   
   print(iter)
   
@@ -366,6 +369,7 @@ for (iter in 1:n.sim) {
   
   # Answer
   ans[[iter]] <- test.y
+  ans.p[[iter]] <- true.p
   
   # pi.star
   pi.svm.result[[iter]] <- pi.svm.one.simul 
@@ -401,16 +405,58 @@ paste0("The CRE of FSVM is ", svm.cre)
 paste0("The accuracy of Flogistic is ", fl.acc)
 paste0("The accuracy of FSVM is ", svm.acc)
 
+# Critereon (3) Distance btw true p & hat p
+predict.p.svm <- as.list(1:n.sim)
+predict.p.fl <- as.list(1:n.sim)
 
-# ## Detailed Check
-# pi.svm.result # n.sim개의 list, with 30 by 3 dimension
-# pi.fl.result  # n.sim개의 list, with 30 by 3 dimension
-# ans # n.sim개의 list, with 1 by 30 dimension
+for(i in 1:n.sim){
+  idx <- ans[[i]]
+  for(j in 1:n.test){
+    a <- pi.svm.result[[i]][j,]
+    b <- pi.fl.result[[i]][j,]
+    predict.p.svm[[i]][j] <- a[idx[j]] 
+    predict.p.fl[[i]][j] <- b[idx[j]] 
+  }
+}
+
+# calculate the difference
+diff.svm <- rep(0,n.sim)
+diff.fl <- rep(0,n.sim)
+
+for (i in 1:n.sim){
+  diff.svm[i] <- sum(abs(ans.p[[i]] - predict.p.svm[[i]]))
+  diff.fl[i] <- sum(abs(ans.p[[i]] - predict.p.fl[[i]]))
+}
+
+# calculate KL-divergence
+kl.svm <- rep(0,n.sim)
+kl.fl <- rep(0,n.sim)
+
+for (i in 1:n.sim){
+  kl.svm[i] <- sum(ans.p[[i]]*log(ans.p[[i]]/predict.p.svm[[i]]))
+  kl.fl[i] <- sum(ans.p[[i]]*log(ans.p[[i]]/predict.p.fl[[i]]))
+}
+
+# sum(diff.svm)
+# sum(diff.fl)
 # 
-# # Check the results
-# round(pi.svm.result[[1]],digit=2)
-# round(pi.fl.result[[1]],digit=2)
-# ans[[1]]
-# apply(pi.fl.result[[1]],1,which.max)
-# apply(pi.svm.result[[1]],1,which.max)
+# mean(diff.svm)
+# mean(diff.fl)
+
+# print
+paste0("--------------Simulation Result with Error ",error,"--------------")
+paste0("--------------Criterieon (1) CRE --------------")
+paste0("CRE of Flogistic is ", round(fl.cre, digits = 3))
+paste0("CRE of FSVM is ", round(svm.cre, digits = 3))
+paste0("--------------Criterieon (2) Accuracy --------------")
+paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
+paste0("Accuracy of FSVM is ", round(svm.acc, digits = 3))
+paste0("--------------Criterieon (3) p diff --------------")
+paste0("sum(Diffence) btw true p and svm.predicted p is ", round(sum(diff.svm), digits = 3))
+paste0("sum(Diffence) btw true p and fl.predicted p is ", round(sum(diff.fl), digits = 3))
+paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(diff.svm), digits = 3))
+paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(diff.fl), digits = 3))
+# paste0("--------------Criterieon (4) KL divergence --------------")
+# paste0("KL Divergence with svm.p is ", round(mean(kl.svm), digits = 3))
+# paste0("KL Divergence with fl.p is ", round(mean(kl.fl), digits = 3))
 

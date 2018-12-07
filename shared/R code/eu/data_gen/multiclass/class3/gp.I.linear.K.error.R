@@ -32,37 +32,43 @@ gp.I.linear.K.error <- function(n, error, beta, K, t = seq(0, 1, by = 0.05), see
   idx2 <- which(y==2)
   idx3 <- which(y==3)
   
+  # Create mean vector
+  mu.t1 <- t+beta1[1]
+  mu.t2 <- t+beta1[2]
+  mu.t3 <- t+beta1[3]
+  
   # x.list
   for (i in idx1) {
-    mu.t <- z.t <- matrix(0, 1, n.t)
-    
     # mean vector of gaussian process
-    mu.t <- t+beta1[1]
-    z.t <- rmvnorm(1, mu.t, Sigma)
-    
+    z.t <- rmvnorm(1, mu.t1, Sigma)
     x.list[[i]] <- z.t
   }
   
   for (i in idx2) {
-    mu.t <- z.t <- matrix(0, 1, n.t)
-    
     # mean vector of gaussian process
-    mu.t <- t+beta1[2]
-    z.t <- rmvnorm(1, mu.t, Sigma)
-    
+    z.t <- rmvnorm(1, mu.t2, Sigma)
     x.list[[i]] <- z.t
   }
   
   for (i in idx3) {
-    mu.t <- z.t <- matrix(0, 1, n.t)
-    
     # mean vector of gaussian process
-    mu.t <- t+beta1[3]
-    z.t <- rmvnorm(1, mu.t, Sigma)
-    
+    z.t <- rmvnorm(1, mu.t3, Sigma)
     x.list[[i]] <- z.t
   }
   
-  obj <- list(x = x.list, y = y, t = t)
+  # Calculate the True p
+  true.p <- rep(0,n)
+  for(i in 1:n){
+    a <- dmvnorm(x=x.list[[i]], mean = mu.t1,log=TRUE)
+    b <- dmvnorm(x=x.list[[i]], mean = mu.t2,log=TRUE)
+    c <- dmvnorm(x=x.list[[i]], mean = mu.t3,log=TRUE)
+    total <- exp(a)+exp(b)+exp(c)
+    if (i %in% idx1) true.p[i] <- exp(a)/total
+    else if (i %in% idx2) true.p[i] <- exp(b)/total
+    else if (i %in% idx3) true.p[i] <- exp(c)/total
+    else warning(paste0("No class was assigned for obs ",i))
+  }
+  
+  obj <- list(x = x.list, y = y, t = t, true.p = true.p)
   return(obj)
 }
