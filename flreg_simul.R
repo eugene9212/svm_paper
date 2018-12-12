@@ -1,45 +1,62 @@
+#### Functional Logistic code (binary) ####
+
 rm(list = ls())
 
 #### load packages & R code ####
-library(mvtnorm); library(fda); library(fda.usc)
-setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
-source('eu/data_gen/gp.1dim.I.R')     # GP with identity covariance (beta)
-source('eu/data_gen/gp.1dim.cov1.R')  # GP with trivial covariance  (beta)
-source('eu/data_gen/gp.1dim.sc.R')    # GP with trivial covariance  (beta)
-source('eu/data_gen/gp.1dim.AR.R')    # GP with trivial covariance  (beta)
-source('eu/data_gen/sc.R')            # non-linear with cross       (no beta)   
-source('eu/data_gen/ss.R')            # non-linear with parallel    (beta)
-source('eu/data_gen/linear.cross.R')  # linear with cross           (no beta)
-source('eu/data_gen/linear.par.R')    # linear with parallel        (beta)
+library(mvtnorm)
+library(fda)
 
+setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
+source('eu/data_gen/binary/gp.1dim.I.R')     # GP with identity covariance (beta)
+source('eu/data_gen/binary/gp.1dim.cov1.R')  # GP with trivial covariance  (beta)
+source('eu/data_gen/binary/gp.1dim.sc.R')  # GP with trivial covariance  (beta)
+source('eu/data_gen/binary/gp.1dim.AR.R')    # GP with trivial covariance  (beta)
+source('eu/data_gen/binary/gp.1dim.ss.R')  # GP with trivial covariance  (beta)
+source('eu/data_gen/binary/linear.cross.R')  # linear with cross           (no beta)
+source('eu/data_gen/binary/linear.par.R')    # linear with parallel        (beta)
+
+source('eu/fsvm.prob.R')
+source('eu/predict.fsvm.prob.R')
+
+source('fn/fsvm.pi.path.R')
+source('fn/fsvm.sub.pi.path.R')
+
+dyn.load("C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/temp/wsvmqp.dll")
+sourceDir <- function(path, trace = TRUE, ...) {
+  for (nm in list.files(path, pattern = "[.][RrSsQq]$")) {
+    if(trace) cat(nm,":")
+    source(file.path(path, nm), ...)
+    if(trace) cat("\n")
+  }
+}
 # set up
 n.sim <- 50
 t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
-beta <- 0.5
+beta <- 3
+error <- 0.5
 
 # storage
-CRE.result<-matrix(0, n.sim, 1)
-pi.result <- as.list(1:n.sim)
+CRE.fl.result<-matrix(0, n.sim, 1)
+pi.fl.result <- as.list(1:n.sim)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
-  # iter<-37
+  # iter<-1
   n.train <- 50
   n.test <- 40
   n <- n.train + n.test
   
   # Data generation (6 methods)
   set.seed(iter)
-  # data <- gp.1dim.I(n, beta, t = t, seed = iter)
-  # data <- gp.1dim.cov1(n, beta, t = t, seed = iter)
-  # data <- gp.1dim.sc(n, t = t, seed = iter)
-  # data <- gp.1dim.AR(n, beta, p = 5, rho = 0.5, t = t, seed = iter)
-  # data <- sc(n, t = t, seed = iter)
-  # data <- ss(n, beta, t = t, seed = iter)
-  data <- linear.cross(n, t = t, seed = iter)
-  # data <- linear.par(n, beta, t = t, seed = iter)
+  # data <- gp.1dim.I(n, error, beta, t = t, seed = iter)
+  # data <- gp.1dim.cov1(n, error, beta, t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, t = t, seed = iter)
+  data <- gp.1dim.ss(n, error, beta, t = t, seed = iter)
+  # data <- gp.1dim.AR(n, error, beta, p = 5, rho = 0.5, t = t, seed = iter)
+  # data <- linear.cross(n, error, t = t, seed = iter)
+  # data <- linear.par(n, error, beta, t = t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -51,43 +68,55 @@ for (iter in 1:n.sim) {
   print(iter)
   
   #### Transform train.x and train.y
-  xx <- train.x
-  x.matrix <- matrix(unlist(xx), nrow = length(xx), byrow = T) # Transform X into matrix form
-  D <- list("data" = x.matrix, "argvals" = t, rangeval = rangeval) # Create D list
-  attr(D, "class") <- "fdata" # Assign attribute of D to fdata
+  ## train.y
+  train.fy <- ifelse(train.y == 1, 1, 0)
+  train.fy <- data.frame(train.fy) # transform y as data.frame structure
   
-  Y <- train.y
-  index <- Y < 0
-  Y[index] = 0 # Chane y value into 1 or 0 (for logistic)
-  dataf <- as.data.frame(Y) # Transforn Y into data.frame form
+  # train.x -> train.fx(fdata)
+  train.f.x.matrix <- matrix(unlist(train.x), nrow = length(train.x), byrow = T)
+  train.fx <- fdata(train.f.x.matrix,argvals=t,rangeval=range(t))
   
-  basis.obj1 <- create.bspline.basis(range(t), 9) # Create 10, b spline obj
-  basis.obj2 <- create.bspline.basis(range(t), 10) # Create 10, b spline obj
-  basis.x <- list("x"=basis.obj1)
-  basis.b <- list("x"=basis.obj2)
-  f <- Y ~ x
-  ldata <- list("df"=dataf,"x"=D) # df : Y data.frame / x : D(list of x values and fdata attribute)
-  res <- fregre.glm(f, family=binomial(link = "logit"), data=ldata, basis.x, basis.b)
-  res <- fregre.glm(f, family=multinom(K=3), data=ldata, basis.x, basis.b)
+  #### FDA
+  nbasis.x=L # create basis used for fdata or fd covariates.
+  nbasis.b=L  # create basis used for beta parameter estimation.
   
-  summary(res)
-  # Predict
-  test.X <- test.x
-  test.x.matrix <- matrix(unlist(test.X), nrow = length(test.X), byrow = T)
-  test.D <- list("data" = test.x.matrix, "argvals" = t, rangeval = rangeval)
-  attr(test.D, "class") <- "fdata"
+  # create basis
+  basis1=create.bspline.basis(rangeval=range(t),nbasis=nbasis.x)
+  basis2=create.bspline.basis(rangeval=range(t),nbasis=nbasis.b)
   
-  test.Y <- test.y; index <- test.Y<0; test.Y[index] = 0
-  test.dataf <- as.data.frame(test.Y)
+  # formula
+  f=train.fy~x 
   
-  f <- test.Y ~ x
-  newldata <- list("df"=test.dataf,"x"=test.D)
+  # Create basis n ldata before fitting the model
+  basis.x=list("x"=basis1) # has to be the same name
+  basis.b=list("x"=basis2)
   
-  # predict(res, newldata, type = "response")
-  pred.glm <- predict.fregre.glm(res, newldata)
-  prob <- pred.glm
+  # as.factor
+  train.fy <- train.fy$train.fy
+  ldata=list("df"=train.fy,"x"=train.fx)
   
-  boxplot(prob[test.Y == 1], prob[test.Y == 0], xlab=paste("logit",iter), ylim=c(0,1))
+  # Fit the model
+  fl.fit <- fregre.glm(f,familiy=binomial(link = "logit"), data=ldata, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  fl.fit
+  ####=======================     test data      ===============================####
+  # test.x -> test.fx(fdata)
+  test.fx.matrix <- matrix(unlist(test.x), nrow = length(test.x), byrow = T)
+  test.fx <- fdata(test.fx.matrix, argvals=t, rangeval=range(t))
+  
+  # create newldata
+  newldata <- list("x"=test.fx)
+  
+  # predict
+  pred.glm <- predict.fregre.glm(fl.fit, newx=newldata, type="response")
+  prob <- exp(pred.glm)/(1+exp(pred.glm))
+  pred.glm
+  prob
+  pred
+  test.y
+  ?predict.fregre.glm
+  
+  # Box Plot
+  boxplot(prob[test.y == 1], prob[test.y == -1], xlab=paste("logit",iter), ylim=c(0,1))
   
   # Criteria
   CRE <- -1/length(test.Y)*(sum(test.Y*log(prob) + (1-test.Y)*log(1-prob)))
