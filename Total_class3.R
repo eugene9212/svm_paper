@@ -31,12 +31,12 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 
 # set up
-n.sim <- 50
+n.sim <- 100
 t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
 beta <- 1
-error <- 2
+error <- 0.5
 K <- 3
 max.iter <- 100
 
@@ -143,9 +143,6 @@ for (iter in 1:n.sim) {
   train.fy12 <- train.fy12$train.fy12
   train.fy13 <- train.fy13$train.fy13
   train.fy23 <- train.fy23$train.fy23
-  # train.fy12 <- as.factor(train.fy12$train.fy12)
-  # train.fy13 <- as.factor(train.fy13$train.fy13)
-  # train.fy23 <- as.factor(train.fy23$train.fy23)
   ldata12=list("df"=train.fy12,"x"=train.fx12)
   ldata13=list("df"=train.fy13,"x"=train.fx13)
   ldata23=list("df"=train.fy23,"x"=train.fx23)
@@ -154,31 +151,26 @@ for (iter in 1:n.sim) {
   res12=fregre.glm(f12,familiy=binomial(link = "logit"), data=ldata12, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
   res13=fregre.glm(f13,familiy=binomial(link = "logit"), data=ldata13, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
   res23=fregre.glm(f23,familiy=binomial(link = "logit"), data=ldata23, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
-  # summary(res12)
-  # summary(res13)
-  # summary(res23)
-  # ?fregre.glm
-  # basis fitting
-  # res.basis <- fregre.basis(train.fx12, train.fy12, basis.x=basis1, basis.b=basis2)
-  # summary(res.basis)
-  # ?fregre.basis
   
   ####=======================     test data      ===============================####
   # test.x -> test.fx(fdata)
-  train.fx.matrix <- matrix(unlist(test.x), nrow = length(test.x), byrow = T)
-  test.fx <- fdata(train.fx.matrix, argvals=t, rangeval=range(t))
+  test.fx.matrix <- matrix(unlist(test.x), nrow = length(test.x), byrow = T)
+  test.fx <- fdata(test.fx.matrix, argvals=t, rangeval=range(t))
   
   # create newldata
   newldata <- list("x"=test.fx)
   
   # predict
   pred.glm12 <- predict.fregre.glm(res12, newldata)
+  pred.glm12 <- exp(pred.glm12)/(1+exp(pred.glm12))
   # test.y
   # round(pred.glm12)
   pred.glm13 <- predict.fregre.glm(res13, newldata)
+  pred.glm13 <- exp(pred.glm13)/(1+exp(pred.glm13))
   # test.y
   # round(pred.glm13)
   pred.glm23 <- predict.fregre.glm(res23, newldata)
+  pred.glm23 <- exp(pred.glm23)/(1+exp(pred.glm23))
   # test.y
   # round(pred.glm23)
   
@@ -424,24 +416,9 @@ diff.svm <- rep(0,n.sim)
 diff.fl <- rep(0,n.sim)
 
 for (i in 1:n.sim){
-  diff.svm[i] <- sum(abs(ans.p[[i]] - predict.p.svm[[i]]))
-  diff.fl[i] <- sum(abs(ans.p[[i]] - predict.p.fl[[i]]))
+  diff.svm[i] <- mean(abs(ans.p[[i]] - predict.p.svm[[i]]))
+  diff.fl[i] <- mean(abs(ans.p[[i]] - predict.p.fl[[i]]))
 }
-
-# calculate KL-divergence
-kl.svm <- rep(0,n.sim)
-kl.fl <- rep(0,n.sim)
-
-for (i in 1:n.sim){
-  kl.svm[i] <- sum(ans.p[[i]]*log(ans.p[[i]]/predict.p.svm[[i]]))
-  kl.fl[i] <- sum(ans.p[[i]]*log(ans.p[[i]]/predict.p.fl[[i]]))
-}
-
-# sum(diff.svm)
-# sum(diff.fl)
-# 
-# mean(diff.svm)
-# mean(diff.fl)
 
 # print
 paste0("--------------Simulation Result with Error ",error,"--------------")
@@ -452,8 +429,8 @@ paste0("--------------Criterieon (2) Accuracy --------------")
 paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
 paste0("Accuracy of FSVM is ", round(svm.acc, digits = 3))
 paste0("--------------Criterieon (3) p diff --------------")
-paste0("sum(Diffence) btw true p and svm.predicted p is ", round(sum(diff.svm), digits = 3))
-paste0("sum(Diffence) btw true p and fl.predicted p is ", round(sum(diff.fl), digits = 3))
+# paste0("sum(Diffence) btw true p and svm.predicted p is ", round(sum(diff.svm), digits = 3))
+# paste0("sum(Diffence) btw true p and fl.predicted p is ", round(sum(diff.fl), digits = 3))
 paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(diff.svm), digits = 3))
 paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(diff.fl), digits = 3))
 # paste0("--------------Criterieon (4) KL divergence --------------")
