@@ -36,7 +36,7 @@ t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
 beta <- 1
-error <- 0.5
+error <- 1
 K <- 3
 max.iter <- 100
 
@@ -60,8 +60,8 @@ for (iter in 1:n.sim) {
   
   # Data generation (3 methods)
   set.seed(iter)
-  data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
-  # data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
+  # data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
+  data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
   # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
   
   id <- sample(1:n, n.train)
@@ -162,15 +162,18 @@ for (iter in 1:n.sim) {
   
   # predict
   pred.glm12 <- predict.fregre.glm(res12, newldata)
-  pred.glm12 <- exp(pred.glm12)/(1+exp(pred.glm12))
+  pred.glm12 <- ifelse(pred.glm12 < 0,1e-10,pred.glm12)
+  pred.glm12 <- ifelse(pred.glm12 > 1,1-1e-10,pred.glm12)
   # test.y
   # round(pred.glm12)
   pred.glm13 <- predict.fregre.glm(res13, newldata)
-  pred.glm13 <- exp(pred.glm13)/(1+exp(pred.glm13))
+  pred.glm13 <- ifelse(pred.glm13 < 0,1e-10,pred.glm13)
+  pred.glm13 <- ifelse(pred.glm13 > 1,1-1e-10,pred.glm13)
   # test.y
   # round(pred.glm13)
   pred.glm23 <- predict.fregre.glm(res23, newldata)
-  pred.glm23 <- exp(pred.glm23)/(1+exp(pred.glm23))
+  pred.glm23 <- ifelse(pred.glm23 < 0,1e-10,pred.glm23)
+  pred.glm23 <- ifelse(pred.glm23 > 1,1-1e-10,pred.glm23)
   # test.y
   # round(pred.glm23)
   
@@ -191,6 +194,7 @@ for (iter in 1:n.sim) {
     one[lower.tri(one, diag=TRUE)] <- 0
     r <- one - r
     r <- abs(r)
+    # 1e-323==0
     
     ## Algorithm2.
     ### Create Q matrix
@@ -210,8 +214,7 @@ for (iter in 1:n.sim) {
     tt <- 1
     iter.n <- 1
     
-    while(iter <= max.iter){
-      # print(iter.n)
+    while(iter.n <= max.iter){
       a <- 1/Q[tt,tt]
       b <- t(p) %*% Q %*% p
       p[tt,] <- a * ( -as.vector(Q[tt,-tt]) %*% p[-tt]  + b)
@@ -224,7 +227,7 @@ for (iter in 1:n.sim) {
       tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
       tmp3 <- tmp2[upper.tri(tmp2)]
       # idx <- which(max(p) == p)
-      # c <- c(p[idx] - p[-idx]) n
+      # c <- c(p[idx] - p[-idx])
       
       if (abs(tmp3)[1] < 1e-05 && abs(tmp3)[2] < 1e-05 && abs(tmp3)[3] < 1e-05) break
       # if (abs(tmp3) < 1e-05 && sum(p) == 1) break
@@ -237,12 +240,9 @@ for (iter in 1:n.sim) {
         tt <- (tt + 1)
       }
       
-      # if (iter.n == 1000) stop("Iteration reached 1000 and it didn't converge")
-      
       iter.n <- iter.n + 1 # counting the iteration
     }
     
-    # warning
     if (iter.n == max.iter) warning("maximum iteration reached!")
     
     pi.fl.one.simul[ii,] <- p
@@ -309,8 +309,8 @@ for (iter in 1:n.sim) {
       tmp <- Q %*% p
       tmp2 <- matrix(outer(tmp, tmp, "-"), K, K)
       tmp3 <- tmp2[upper.tri(tmp2)]
-      idx <- which(max(p) == p)
-      c <- c(p[idx] - p[-idx])
+      # idx <- which(max(p) == p)
+      # c <- c(p[idx] - p[-idx])
       
       if (abs(tmp3)[1] < 1e-05 && abs(tmp3)[2] < 1e-05 && abs(tmp3)[3] < 1e-05) break
       # if (abs(tmp3) < 1e-05 && sum(p) == 1) break
@@ -337,26 +337,23 @@ for (iter in 1:n.sim) {
   
   # Save results (for flogistic) -------------------------------------------------------------------#
   # CRE 
-  s <- c()
+  s.fl <- c()
   for (k in 1:n.test){
-    s <- c(s,-log(pi.fl.one.simul[k,test.y[k]]))
+    s.fl <- c(s.fl,-log(pi.fl.one.simul[k,test.y[k]]))
   }
-  CRE.fl <- sum(s)
+  CRE.fl <- sum(s.fl)
   CRE.fl.result[iter] <- CRE.fl
-  
-  # Answer
-  ans[[iter]] <- test.y
   
   # pi.star
   pi.fl.result[[iter]] <- pi.fl.one.simul 
   
   # Save results (for FSVM) -----------------------------------------------------------------------#
   # CRE 
-  s <- c()
+  s.svm <- c()
   for (k in 1:n.test){
-    s <- c(s,-log(pi.svm.one.simul[k,test.y[k]]))
+    s.svm <- c(s.svm,-log(pi.svm.one.simul[k,test.y[k]]))
   }
-  CRE.svm <- sum(s)
+  CRE.svm <- sum(s.svm)
   CRE.svm.result[iter] <- CRE.svm
   
   # Answer
@@ -382,8 +379,8 @@ svm.cre<-round(mean(CRE.svm.result),digits = 3)
 svm <- matrix(0, ncol = n.sim)
 flog <- matrix(0, ncol = n.sim)
 for(k in 1:n.sim){
-  svm[,k] <- sum(apply(pi.fl.result[[k]], 1, which.max) == ans[[k]])
-  flog[,k] <- sum(apply(pi.svm.result[[k]], 1, which.max) == ans[[k]])
+  flog[,k] <- sum(apply(pi.fl.result[[k]], 1, which.max) == ans[[k]])
+  svm[,k] <- sum(apply(pi.svm.result[[k]], 1, which.max) == ans[[k]])
 }
 
 # total number : 50 * 30 = 1500

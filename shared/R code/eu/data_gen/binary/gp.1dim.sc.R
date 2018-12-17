@@ -1,5 +1,5 @@
 # create Gaussian Process (1-dimension)
-gp.1dim.sc <- function(n, error, t = seq(0, 1, by = 0.05), seed = 1)
+gp.1dim.sc <- function(n, error, cov, t = seq(0, 1, by = 0.05), seed = 1)
 {
   set.seed(seed)
   # binary response
@@ -10,7 +10,17 @@ gp.1dim.sc <- function(n, error, t = seq(0, 1, by = 0.05), seed = 1)
   n.t <- length(t) 
 
   # covariance matrix of gaussian process
-  Sigma <- error*diag(n.t)
+  if (cov=="I") Sigma <- error*diag(n.t)
+  else if(cov=="AR") {
+    rho <- 0.7
+    idx.t <- c(1:n.t)
+    Sigma <- error * outer(idx.t, idx.t, function(a, b) rho^abs(a-b))
+  } else if(cov=="CS") {
+    rho <- 0.3
+    tmp <- matrix(rho,n.t,n.t)
+    diag(tmp) <- 1
+    Sigma <- error * tmp
+  } else warning("covariance structure was not specified")
   
   # Divide index
   idx1 <- which(y==-1)

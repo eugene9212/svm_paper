@@ -5,6 +5,7 @@ rm(list = ls())
 #### load packages & R code ####
 library(mvtnorm)
 library(fda)
+library(fda.usc)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
 source('eu/data_gen/binary/gp.1dim.I.R')     # GP with identity covariance (beta)
@@ -31,10 +32,10 @@ sourceDir <- function(path, trace = TRUE, ...) {
 }
 # set up
 n.sim <- 50
-t <- seq(0, 1, by = 0.05)
+t <- seq(0, 1, by = 0.03)
 rangeval <- quantile(t, c(0,1))
 L <- 10
-beta <- 3
+beta <- 1
 error <- 0.5
 
 # storage
@@ -50,10 +51,10 @@ for (iter in 1:n.sim) {
   
   # Data generation (6 methods)
   set.seed(iter)
-  # data <- gp.1dim.I(n, error, beta, t = t, seed = iter)
+  data <- gp.1dim.I(n, error, beta, t = t, seed = iter)
   # data <- gp.1dim.cov1(n, error, beta, t = t, seed = iter)
   # data <- gp.1dim.sc(n, error, t = t, seed = iter)
-  data <- gp.1dim.ss(n, error, beta, t = t, seed = iter)
+  # data <- gp.1dim.ss(n, error, beta, t = t, seed = iter)
   # data <- gp.1dim.AR(n, error, beta, p = 5, rho = 0.5, t = t, seed = iter)
   # data <- linear.cross(n, error, t = t, seed = iter)
   # data <- linear.par(n, error, beta, t = t, seed = iter)
@@ -70,11 +71,11 @@ for (iter in 1:n.sim) {
   #### Transform train.x and train.y
   ## train.y
   train.fy <- ifelse(train.y == 1, 1, 0)
-  train.fy <- data.frame(train.fy) # transform y as data.frame structure
+  dataf <- as.data.frame(train.fy) # transform y as data.frame structure
   
   # train.x -> train.fx(fdata)
   train.f.x.matrix <- matrix(unlist(train.x), nrow = length(train.x), byrow = T)
-  train.fx <- fdata(train.f.x.matrix,argvals=t,rangeval=range(t))
+  x <- train.fx <- fdata(train.f.x.matrix,argvals=t,rangeval=range(t))
   
   #### FDA
   nbasis.x=L # create basis used for fdata or fd covariates.
@@ -84,20 +85,21 @@ for (iter in 1:n.sim) {
   basis1=create.bspline.basis(rangeval=range(t),nbasis=nbasis.x)
   basis2=create.bspline.basis(rangeval=range(t),nbasis=nbasis.b)
   
-  # formula
-  f=train.fy~x 
-  
   # Create basis n ldata before fitting the model
   basis.x=list("x"=basis1) # has to be the same name
   basis.b=list("x"=basis2)
   
   # as.factor
-  train.fy <- train.fy$train.fy
-  ldata=list("df"=train.fy,"x"=train.fx)
+  # dataf <- dataf$train.fy
+  ldata=list("df"=dataf,"x"=x)
+  
+  # formula
+  f=train.fy~x 
   
   # Fit the model
-  fl.fit <- fregre.glm(f,familiy=binomial(link = "logit"), data=ldata, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
-  fl.fit
+  fl.fit <- fregre.glm(f,familiy=binomial(), data=ldata, basis.x=basis.x, basis.b=basis.b, control =list(maxit=1000))
+  summary(fl.fit)
+  fl.fit$fitted.values
   ####=======================     test data      ===============================####
   # test.x -> test.fx(fdata)
   test.fx.matrix <- matrix(unlist(test.x), nrow = length(test.x), byrow = T)
@@ -107,13 +109,10 @@ for (iter in 1:n.sim) {
   newldata <- list("x"=test.fx)
   
   # predict
-  pred.glm <- predict.fregre.glm(fl.fit, newx=newldata, type="response")
-  prob <- exp(pred.glm)/(1+exp(pred.glm))
-  pred.glm
-  prob
-  pred
-  test.y
-  ?predict.fregre.glm
+  pred.glm <- predict.fregre.glm(fl.fit, newx=newldata)
+  prob <- pred.glm
+  prob <- ifelse(prob < 0,0,prob)
+  prob <- ifelse(prob > 1,1,prob)
   
   # Box Plot
   boxplot(prob[test.y == 1], prob[test.y == -1], xlab=paste("logit",iter), ylim=c(0,1))

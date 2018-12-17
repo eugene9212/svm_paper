@@ -6,6 +6,7 @@ rm(list = ls())
 #### load packages & R code ####
 library(mvtnorm)
 library(fda)
+library(fda.usc)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
 source('eu/data_gen/binary/gp.1dim.I.R')     # GP with identity covariance (beta)
@@ -34,7 +35,7 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 
 # set up
-n.sim <- 30
+n.sim <- 100
 t <- seq(0, 1, by = 0.05)
 L <- 10
 error <- 0.5
@@ -53,20 +54,28 @@ pi.svm.result <- as.list(1:n.sim)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
-  # iter<-47
-  n.train <- 60
-  n.test <- 40
+  # iter<-101
+  n.train <- 100
+  n.test <- 1000
   n <- n.train + n.test
   
-  # Data generation (6 methods)
+  # Data generation (4 methods with cov=Identity)
   set.seed(iter)
-  data <- gp.1dim.I(n, error, beta, t = t, seed = iter)
-  # data <- gp.1dim.cov1(n, error, beta, t = t, seed = iter)
-  # data <- gp.1dim.sc(n, error, t = t, seed = iter)
-  # data <- gp.1dim.ss(n, error, t = t, seed = iter)
-  # data <- gp.1dim.AR(n, error, beta, p = 5, rho = 0.5, t = t, seed = iter)
-  # data <- linear.cross(n, error, t = t, seed = iter)
-  # data <- linear.par(n, error, beta, t = t, seed = iter)
+  # with covariance = Identity
+  # data <- gp.1dim.ss(n, error, beta, cov = 'I', t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = 'I', t = t, seed = iter)
+  data <- linear.cross(n, error, cov = 'I', t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = 'I', t = t, seed = iter)
+  # with covariance = AR
+  # data <- gp.1dim.ss(n, error, beta, cov = 'AR', t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = 'AR', t = t, seed = iter)
+  # data <- linear.cross(n, error, cov = 'AR', t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = 'AR', t = t, seed = iter)
+  # with covariance = CS
+  # data <- gp.1dim.ss(n, error, beta, cov = 'CS', t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = 'CS', t = t, seed = iter)
+  # data <- linear.cross(n, error, cov = 'CS', t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = 'CS', t = t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -122,26 +131,31 @@ for (iter in 1:n.sim) {
   
   # predict
   prob <- predict.fregre.glm(fl.fit, newldata)
-  fl.prob <- exp(prob)/(1+exp(prob))
-  
-  # Predicted Probability of Funtional logistic
-  pi.fl.result[[iter]] <- fl.prob
+  prob <- ifelse(prob < 0,1e-10,prob)
+  prob <- ifelse(prob > 1,1-1e-10,prob)
+
+    # Predicted Probability of Funtional logistic
+  pi.fl.result[[iter]] <- prob
   
   # Criteria (CRE)
-  CRE.fl <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(fl.prob) + 1/2*(1-test.y)*log(1-fl.prob)))
+  delta <- 1e-07
+  CRE.fl <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(prob+delta) + 1/2*(1-test.y)*log(1-prob+delta)))
   CRE.fl.result[iter,] <- CRE.fl
   
   # Predicted Probability of FSVM
   pi.svm.result[[iter]] <- svm.prob
   
   # Criteria (CRE)
-  CRE.svm <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(svm.prob) + 1/2*(1-test.y)*log(1-svm.prob)))
+  CRE.svm <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(svm.prob+delta) + 1/2*(1-test.y)*log(1-svm.prob+delta)))
   CRE.svm.result[iter,] <- CRE.svm
   
+  # Box Plot
+  # boxplot(svm.prob[test.y == 1], svm.prob[test.y == -1], xlab=paste("svm",iter), ylim=c(0,1))
+  # boxplot(fl.prob[test.y == 1], fl.prob[test.y == -1], xlab=paste("logit",iter), ylim=c(0,1))
+
   # store the answers
   ans[[iter]] <- test.y
   ans.p[[iter]] <- data$true.p[-id]
-  
 }
 
 # Check warnings
@@ -155,11 +169,12 @@ svm.cre<-round(mean(CRE.svm.result),digits = 3)
 svm <- matrix(0, ncol = n.sim)
 flog <- matrix(0, ncol = n.sim)
 for(k in 1:n.sim){
-  svm[,k] <- sum(apply(pi.fl.result[[k]], 1, which.max) == ans[[k]])
-  flog[,k] <- sum(apply(pi.svm.result[[k]], 1, which.max) == ans[[k]])
+  flog[,k] <- sum(ifelse(pi.fl.result[[k]]<=0.5, -1, 1) == ans[[k]])
+  svm[,k] <- sum(ifelse(pi.svm.result[[k]]<=0.5, -1, 1) == ans[[k]])
 }
-
-# total number : 50 * 30 = 1500
+# str(pi.fl.result)
+# hist(svm)
+# hist(flog)
 svm.acc <- round(mean(svm/n.test), digits = 3)
 fl.acc <- round(mean(flog/n.test), digits = 3)
 
@@ -168,22 +183,28 @@ predict.p.svm <- as.list(1:n.sim)
 predict.p.fl <- as.list(1:n.sim)
 
 for(i in 1:n.sim){
-  idx <- ans[[i]]
-  for(j in 1:n.test){
-    a <- pi.svm.result[[i]][j,]
-    b <- pi.fl.result[[i]][j,]
-    predict.p.svm[[i]][j] <- a[idx[j]] 
-    predict.p.fl[[i]][j] <- b[idx[j]] 
-  }
+  idx1 <- which(ans[[i]]==-1)
+  idx2 <- which(ans[[i]]==1)
+  
+  predict.p.svm[[i]][idx1] <- 1-pi.svm.result[[i]][idx1]
+  predict.p.svm[[i]][idx2] <- pi.svm.result[[i]][idx2]
+  
+  predict.p.fl[[i]][idx1] <- 1-pi.fl.result[[i]][idx1]
+  predict.p.fl[[i]][idx2] <- pi.fl.result[[i]][idx2]
 }
 
 # calculate the difference
 diff.svm <- rep(0,n.sim)
 diff.fl <- rep(0,n.sim)
 
+# check (adding weights)
+# a <- ans.p[[i]][1:3]
+# sqrt(1/(a*(1-a)))*abs(c(1,2,3)-c(3,5,7))
+
 for (i in 1:n.sim){
-  diff.svm[i] <- mean(abs(ans.p[[i]] - predict.p.svm[[i]]))
-  diff.fl[i] <- mean(abs(ans.p[[i]] - predict.p.fl[[i]]))
+  weight <- sqrt(1/(ans.p[[i]]*(1-ans.p[[i]])))
+  diff.svm[i] <- mean(sqrt(weight)*abs(ans.p[[i]] - predict.p.svm[[i]]))
+  diff.fl[i] <- mean(sqrt(weight)*abs(ans.p[[i]] - predict.p.fl[[i]]))
 }
 
 # print
