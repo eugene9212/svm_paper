@@ -38,8 +38,9 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 n.sim <- 100
 t <- seq(0, 1, by = 0.05)
 L <- 10
-error <- 0.5
+error <- 1
 beta <- 1
+# ridge <- 1e-3
 
 # storage
 ## for test.y
@@ -54,28 +55,28 @@ pi.svm.result <- as.list(1:n.sim)
 
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
-  # iter<-101
-  n.train <- 100
+  # iter<-92
+  n.train <- 500
   n.test <- 1000
   n <- n.train + n.test
   
   # Data generation (4 methods with cov=Identity)
   set.seed(iter)
   # with covariance = Identity
-  # data <- gp.1dim.ss(n, error, beta, cov = 'I', t = t, seed = iter)
-  # data <- gp.1dim.sc(n, error, cov = 'I', t = t, seed = iter)
-  data <- linear.cross(n, error, cov = 'I', t = t, seed = iter)
-  # data <- linear.par(n, error, beta, cov = 'I', t = t, seed = iter)
-  # with covariance = AR
-  # data <- gp.1dim.ss(n, error, beta, cov = 'AR', t = t, seed = iter)
-  # data <- gp.1dim.sc(n, error, cov = 'AR', t = t, seed = iter)
-  # data <- linear.cross(n, error, cov = 'AR', t = t, seed = iter)
-  # data <- linear.par(n, error, beta, cov = 'AR', t = t, seed = iter)
+  # data <- gp.1dim.ss(n, error, beta, cov = "I", t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = "I", t = t, seed = iter)
+  # data <- linear.cross(n, error, cov = "I", t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = "I", t = t, seed = iter)
+    # with covariance = AR
+  data <- gp.1dim.ss(n, error, beta, cov = "AR", t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = "AR", t = t, seed = iter)
+  # data <- linear.cross(n, error, cov = "AR", t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = "AR", t = t, seed = iter)
   # with covariance = CS
-  # data <- gp.1dim.ss(n, error, beta, cov = 'CS', t = t, seed = iter)
-  # data <- gp.1dim.sc(n, error, cov = 'CS', t = t, seed = iter)
-  # data <- linear.cross(n, error, cov = 'CS', t = t, seed = iter)
-  # data <- linear.par(n, error, beta, cov = 'CS', t = t, seed = iter)
+  # data <- gp.1dim.ss(n, error, beta, cov = "CS", t = t, seed = iter)
+  # data <- gp.1dim.sc(n, error, cov = "CS", t = t, seed = iter)
+  # data <- linear.cross(n, error, cov = "CS", t = t, seed = iter)
+  # data <- linear.par(n, error, beta, cov = "CS", t = t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -84,16 +85,24 @@ for (iter in 1:n.sim) {
   test.x <- data$x[-id]
   test.y <- data$y[-id]
   
+  ans.p[[iter]] <- data$true.p[-id]
+  
   print(iter)
   
   #========================================== Functional SVM ====================####
   ####=======================     train data 
-  # calculate the pi path
-  svm.obj <- fsvm.prob(train.x, train.y, t, L)
+  svm.obj <- tryCatch({
+    fsvm.prob(train.x, train.y, t, L)
+  }, error = function(e) {
+    fsvm.prob(train.x, train.y, t, L, ridge=1e-3)
+  })
+  # Error in solve.default(Kstar, al)
+  # svm.obj <- fsvm.prob(train.x, train.y, t, L, ridge) # calculate the pi path
   
   ####=======================     test data
   svm.obj2 <- predict.fsvm.prob(svm.obj, test.x)
   svm.prob <- svm.obj2$prob
+  # cbind(test.y,svm.prob)
   
   #========================================== Functional logistic ===============####
   #### Transform train.x and train.y
@@ -134,16 +143,17 @@ for (iter in 1:n.sim) {
   prob <- ifelse(prob < 0,1e-10,prob)
   prob <- ifelse(prob > 1,1-1e-10,prob)
 
-    # Predicted Probability of Funtional logistic
-  pi.fl.result[[iter]] <- prob
+  # Predicted Probability of Funtional logistic
+  pi.fl.result[[iter]] <- c(prob)
+  # cbind(test.y, prob)
   
   # Criteria (CRE)
-  delta <- 1e-07
+  delta <- 1e-10
   CRE.fl <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(prob+delta) + 1/2*(1-test.y)*log(1-prob+delta)))
   CRE.fl.result[iter,] <- CRE.fl
   
   # Predicted Probability of FSVM
-  pi.svm.result[[iter]] <- svm.prob
+  pi.svm.result[[iter]] <- c(svm.prob)
   
   # Criteria (CRE)
   CRE.svm <- -1/length(test.y)*(sum(1/2*(1+test.y)*log(svm.prob+delta) + 1/2*(1-test.y)*log(1-svm.prob+delta)))
@@ -151,60 +161,71 @@ for (iter in 1:n.sim) {
   
   # Box Plot
   # boxplot(svm.prob[test.y == 1], svm.prob[test.y == -1], xlab=paste("svm",iter), ylim=c(0,1))
-  # boxplot(fl.prob[test.y == 1], fl.prob[test.y == -1], xlab=paste("logit",iter), ylim=c(0,1))
+  # boxplot(prob[test.y == 1], prob[test.y == -1], xlab=paste("logit",iter), ylim=c(0,1))
 
   # store the answers
   ans[[iter]] <- test.y
-  ans.p[[iter]] <- data$true.p[-id]
 }
 
 # Check warnings
-summary(warnings())
+# summary(warnings())
 
-# Critereon (1) Cross Entropy
-fl.cre<-round(mean(CRE.fl.result),digits = 3)
-svm.cre<-round(mean(CRE.svm.result),digits = 3)
+# Critereon (1) Cross Entropy ======================================================
+fl.cre <- round(mean(CRE.fl.result),digits = 3)
+svm.cre <- round(mean(CRE.svm.result),digits = 3)
 
-# Critereon (2) Accuracy
+# Critereon (2) Accuracy ===========================================================
 svm <- matrix(0, ncol = n.sim)
 flog <- matrix(0, ncol = n.sim)
 for(k in 1:n.sim){
   flog[,k] <- sum(ifelse(pi.fl.result[[k]]<=0.5, -1, 1) == ans[[k]])
   svm[,k] <- sum(ifelse(pi.svm.result[[k]]<=0.5, -1, 1) == ans[[k]])
 }
-# str(pi.fl.result)
-# hist(svm)
-# hist(flog)
 svm.acc <- round(mean(svm/n.test), digits = 3)
 fl.acc <- round(mean(flog/n.test), digits = 3)
 
-# Critereon (3) Distance btw true p & hat p
-predict.p.svm <- as.list(1:n.sim)
-predict.p.fl <- as.list(1:n.sim)
+# Critereon (3) Distance btw true p & hat p =========================================
+predict.p.svm <- pi.svm.result
+predict.p.fl <- pi.fl.result
 
 for(i in 1:n.sim){
-  idx1 <- which(ans[[i]]==-1)
-  idx2 <- which(ans[[i]]==1)
+  # i<-1
+  class.fl <- c(); idx.fl <- c(); class.svm <- c(); idx.svm <- c()
   
-  predict.p.svm[[i]][idx1] <- 1-pi.svm.result[[i]][idx1]
-  predict.p.svm[[i]][idx2] <- pi.svm.result[[i]][idx2]
+  class.fl <- ifelse(pi.fl.result[[i]]<=0.5, -1, 1)
+  idx.fl <- which(class.fl==-1)
   
-  predict.p.fl[[i]][idx1] <- 1-pi.fl.result[[i]][idx1]
-  predict.p.fl[[i]][idx2] <- pi.fl.result[[i]][idx2]
+  class.svm <- ifelse(pi.svm.result[[i]]<=0.5, -1, 1)
+  idx.svm <- which(class.svm==-1)
+  
+  predict.p.fl[[i]][idx.fl] <- 1-pi.fl.result[[i]][idx.fl]
+  predict.p.svm[[i]][idx.svm] <- 1-pi.svm.result[[i]][idx.svm]
 }
 
 # calculate the difference
 diff.svm <- rep(0,n.sim)
 diff.fl <- rep(0,n.sim)
+w.diff.svm <- rep(0,n.sim)
+w.diff.fl <- rep(0,n.sim)
 
-# check (adding weights)
-# a <- ans.p[[i]][1:3]
-# sqrt(1/(a*(1-a)))*abs(c(1,2,3)-c(3,5,7))
-
+ans.p1 <- ans.p
+# ans.p[[5]]
+# i<-5
 for (i in 1:n.sim){
-  weight <- sqrt(1/(ans.p[[i]]*(1-ans.p[[i]])))
-  diff.svm[i] <- mean(sqrt(weight)*abs(ans.p[[i]] - predict.p.svm[[i]]))
-  diff.fl[i] <- mean(sqrt(weight)*abs(ans.p[[i]] - predict.p.fl[[i]]))
+  idx1 <- which(c(ans.p1[[i]]-1)==0)
+  ans.p1[[i]][idx1] <- c(1-delta)
+  
+  idx2 <- which(c(ans.p1[[i]]-0)==0)
+  ans.p1[[i]][idx2] <- c(delta)
+  
+  weight <- sqrt(ans.p1[[i]]*(1-ans.p1[[i]]))
+  # print(i)
+  # print(weight)
+  w.diff.svm[i] <- mean(weight*abs(ans.p[[i]] - predict.p.svm[[i]]))
+  w.diff.fl[i] <- mean(weight*abs(ans.p[[i]] - predict.p.fl[[i]]))
+  
+  diff.svm[i] <- mean(abs(ans.p[[i]] - predict.p.svm[[i]]))
+  diff.fl[i] <- mean(abs(ans.p[[i]] - predict.p.fl[[i]]))
 }
 
 # print
@@ -215,10 +236,10 @@ paste0("CRE of Flogistic is ", round(fl.cre, digits = 3))
 paste0("--------------Criterieon (2) Accuracy --------------")
 paste0("Accuracy of FSVM is ", round(svm.acc, digits = 3))
 paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
-paste0("--------------Criterieon (3) p diff --------------")
+paste0("--------------Criterieon (3.1) p diff --------------")
 paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(diff.svm), digits = 3))
 paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(diff.fl), digits = 3))
-
-
-
-
+paste0("--------------Criterieon (3.2) p diff (weighted) --------------")
+paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(w.diff.svm), digits = 3))
+paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(w.diff.fl), digits = 3))
+alarm()
