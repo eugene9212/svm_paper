@@ -10,8 +10,9 @@ gp.1dim.ss <- function(n, error, beta, cov, t = seq(0, 1, by = 0.05), seed = 1)
   n.t <- length(t) 
   
   # covariance matrix of gaussian process
-  if (cov=="I") Sigma <- error*diag(n.t)
-    else if(cov=="AR") {
+  if (cov=="I") {
+    Sigma <- error*diag(n.t)
+    } else if(cov=="AR") {
       rho <- 0.7
       idx.t <- c(1:n.t)
       Sigma <- error * outer(idx.t, idx.t, function(a, b) rho^abs(a-b))
