@@ -1,5 +1,5 @@
 # create Gaussian Process (1-dimension)
-gp.1dim.ss <- function(n, error, beta, cov, t = seq(0, 1, by = 0.05), seed = 1)
+gp.1dim.ss <- function(n, error, beta, cov, rho, t = seq(0, 1, by = 0.05), seed = 1)
 {
   set.seed(seed)
   # binary response
@@ -13,11 +13,11 @@ gp.1dim.ss <- function(n, error, beta, cov, t = seq(0, 1, by = 0.05), seed = 1)
   if (cov=="I") {
     Sigma <- error*diag(n.t)
     } else if(cov=="AR") {
-      rho <- 0.7
+      rho <- rho # 0.7
       idx.t <- c(1:n.t)
       Sigma <- error * outer(idx.t, idx.t, function(a, b) rho^abs(a-b))
     } else if(cov=="CS") {
-      rho <- 0.3
+      rho <- rho # 0.3
       tmp <- matrix(rho,n.t,n.t)
       diag(tmp) <- 1
       Sigma <- error * tmp
