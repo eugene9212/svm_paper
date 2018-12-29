@@ -35,7 +35,7 @@ n.sim <- 30 + extra
 true.sim <- 30
 t <- seq(0, 1, by = 0.05)
 L <- 10
-beta <- 1
+beta <- 2
 
 rho <- 0.3
 cov <- "CS"
@@ -87,7 +87,7 @@ for(n.fn in 1:4){
         count <- 1
         ####========================= Simluation ==================================####
         for (iter in 1:c(n.sim)) {
-          # iter<-1
+          # iter<-4
           n <- n.trn + n.test
           
           # Data generation (4 methods with cov=Identity)
@@ -117,16 +117,15 @@ for(n.fn in 1:4){
           a<-c()
           #========================================== Functional SVM ====================####
           ####=======================     train data
-          svm.obj <- tryCatch({
-            a <- 0
-            fsvm.prob(train.x, train.y, t, L)
-          }, error = function(e){
-            a <- 1
-            fsvm.prob(train.x, train.y, t, L, ridge=1e-3)
-          })
+          tryCatch(expr = {
+            svm.obj <- fsvm.prob(train.x, train.y, t, L)
+            a<-1
+            } , error = function(e) {a <<-2})
+          
+            # fsvm.prob(train.x, train.y, t, L, ridge=1e-3)
           # Error in solve.default(Kstar, al)
           # svm.obj <- fsvm.prob(train.x, train.y, t, L, ridge) # calculate the pi path
-          if (a == 1) next
+          if (a == 2) next
           ####=======================     test data
           svm.obj2 <- predict.fsvm.prob(svm.obj, test.x)
           svm.prob <- svm.obj2$prob
