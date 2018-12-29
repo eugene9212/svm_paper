@@ -27,8 +27,10 @@ linear.cross <- function(n, error, cov, rho, t = seq(0, 1, by = 0.05), seed = 1)
   idx2 <- which(y==1)
   
   # Create mean vector
-  mu.t1 <- t
-  mu.t2 <- -t+1
+  mu.t1 <- 2*t
+  mu.t2 <- -2*t+2
+  # mu.t1 <- t
+  # mu.t2 <- -t+1
   
   # x.list
   x.list <- as.list(1:n)

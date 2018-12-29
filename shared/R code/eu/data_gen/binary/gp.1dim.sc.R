@@ -28,8 +28,10 @@ gp.1dim.sc <- function(n, error, cov, rho, t = seq(0, 1, by = 0.05), seed = 1)
   idx2 <- which(y==1)
   
   # Create mean vector
-  mu.t1 <- sin(t)
-  mu.t2 <- cos(t)
+  mu.t1 <- sin(t*0.5*pi)
+  mu.t2 <- cos(t*0.5*pi)
+  # mu.t1 <- sin(t)
+  # mu.t2 <- cos(t)
   
   # x.list
   x.list <- as.list(1:n)
