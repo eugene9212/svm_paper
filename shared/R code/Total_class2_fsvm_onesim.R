@@ -31,16 +31,16 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 # set up
 extra <- 10
-n.sim <- 30 + extra
-true.sim <- 30
+n.sim <- 100 + extra
+true.sim <- 100
 t <- seq(0, 1, by = 0.05)
 L <- 10
 beta <- 2
 
-rho <- 0.3
-cov <- "CS"
+rho <- 0.7
+cov <- "AR"
 
-n.train <- c(100,200,300,500)
+n.train <- c(100,300,500)
 n.test <- 1000
 
 
@@ -49,7 +49,7 @@ result.by.gen <- as.list(1:4)
 result <- matrix(0, nrow = length(n.train), ncol = 8)
 colnames(result) <- c("svm.cre","fl.cre","svm.acc","fl.acc","diff.svm","diff.fl",
                       "w.diff.svm","w.diff.fl")
-rownames(result) <- c("100","200","300","500")
+rownames(result) <- c("100","300","500")
 # result
 
 
@@ -57,9 +57,9 @@ for(n.fn in 1:4){
   print(paste0("=========================",n.fn,"========================="))
   
   # Storage by one method
-  result <- matrix(0, nrow = length(n.train), ncol = 8)
+  result <- matrix(0, nrow = length(n.train)*2, ncol = 8)
   colnames(result) <- c("svm.cre","fl.cre","svm.acc","fl.acc","diff.svm","diff.fl","w.diff.svm","w.diff.fl")
-  rownames(result) <- c("100","200","300","500")
+  rownames(result) <- c("100/0.3","100/0.5","300/0.3","300/0.5","500/0.3","500/0.5")
   
   # fo(r in 1:length(n.rho)){
   #   rho <- n.rho[r]
@@ -68,8 +68,8 @@ for(n.fn in 1:4){
       n.trn <- n.train[trn]
       print(paste0("=========================",n.trn,"========================="))
       
-      for(j in 2){
-        e <- c(0.5,1)
+      for(j in 1:2){
+        e <- c(0.3,0.5)
         rslt.1 <- matrix(0, nrow = 2, ncol = 8)
         error <- e[j]
         
@@ -259,14 +259,14 @@ for(n.fn in 1:4){
         # rownames(result) <- c("0.5", "1")
       } # End of error loop
       
-      result[trn,] <- rslt.1[j,]
+      result[(2*trn-1):(2*trn),] <- rslt.1
     } # End of training (100~500)
   
   result.by.gen[[n.fn]] <- result
 }
-
+names(result.by.gen) <- c("sin_sin", "sin_cos", "linear_crss", "linear_par")
 # result
-result.by.gen[[1]]
-result.by.gen[[2]]
-result.by.gen[[3]]
-result.by.gen[[4]]
+result.by.gen[['sin_sin']]
+result.by.gen[['sin_cos']]
+result.by.gen[['linear_crss']]
+result.by.gen[['linear_par']]
