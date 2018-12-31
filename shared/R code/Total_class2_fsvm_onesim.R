@@ -31,8 +31,9 @@ sourceDir('C:/Users/eugene/Desktop/SVM_R/shared/R code/KernSurf/R')
 
 # set up
 extra <- 10
-n.sim <- 100 + extra
-true.sim <- 100
+sim <- 100
+n.sim <- sim + extra
+true.sim <- sim
 t <- seq(0, 1, by = 0.05)
 L <- 10
 beta <- 2
@@ -40,37 +41,35 @@ beta <- 2
 rho <- 0.7
 cov <- "AR"
 
-n.train <- c(100,300,500)
+n.train <- c(100,300)
 n.test <- 1000
 
 
 # create a storage by method
 result.by.gen <- as.list(1:4)
-result <- matrix(0, nrow = length(n.train), ncol = 8)
-colnames(result) <- c("svm.cre","fl.cre","svm.acc","fl.acc","diff.svm","diff.fl",
-                      "w.diff.svm","w.diff.fl")
-rownames(result) <- c("100","300","500")
-# result
-
 
 for(n.fn in 1:4){
+  # n.fn <- 1
   print(paste0("=========================",n.fn,"========================="))
   
   # Storage by one method
   result <- matrix(0, nrow = length(n.train)*2, ncol = 8)
   colnames(result) <- c("svm.cre","fl.cre","svm.acc","fl.acc","diff.svm","diff.fl","w.diff.svm","w.diff.fl")
-  rownames(result) <- c("100/0.3","100/0.5","300/0.3","300/0.5","500/0.3","500/0.5")
+  rownames(result) <- c("100/0.3","100/0.5","300/0.3","300/0.5")
   
   # fo(r in 1:length(n.rho)){
   #   rho <- n.rho[r]
     
     for(trn in 1:length(n.train)){
+      # trn <- 1
       n.trn <- n.train[trn]
       print(paste0("=========================",n.trn,"========================="))
       
+      rslt.1 <- matrix(0, nrow = 2, ncol = 8)
+      
       for(j in 1:2){
+        # j <- 1
         e <- c(0.3,0.5)
-        rslt.1 <- matrix(0, nrow = 2, ncol = 8)
         error <- e[j]
         
         # storage
