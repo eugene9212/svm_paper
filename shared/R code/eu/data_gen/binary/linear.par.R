@@ -28,8 +28,8 @@ linear.par <- function(n, error, beta, cov, rho, t = seq(0, 1, by = 0.05), seed 
   idx2 <- which(y==1)
   
   # Create mean vector
-  mu.t1 <- rep(0.5,n.t)
-  mu.t2 <- rep(0.5,n.t) + beta
+  mu.t1 <- t
+  mu.t2 <- t + beta
   
   # x.list
   x.list <- as.list(1:n)
