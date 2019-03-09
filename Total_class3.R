@@ -9,9 +9,10 @@ library(fda)
 library(fda.usc)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
-source('eu/data_gen/multiclass/class3/gp.I.crss.linear.3.error.R')
-source('eu/data_gen/multiclass/class3/gp.I.linear.K.error.R')
-source('eu/data_gen/multiclass/class3/gp.I.nonlinear.3.error.R')
+source('eu/data_gen/multiclass/class3/linear.cross.3.R')
+source('eu/data_gen/multiclass/class3/linear.par.K.R')
+source('eu/data_gen/multiclass/class3/nonlinear.cross.3.R')
+source('eu/data_gen/multiclass/class3/nonlinear.par.K.R')
 
 source('eu/fsvm.prob.R')
 source('eu/predict.fsvm.prob.R')
@@ -36,7 +37,7 @@ t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
 beta <- 1
-error <- 1
+error <- 0.5
 K <- 3
 max.iter <- 100
 
@@ -54,15 +55,18 @@ pi.svm.result <- as.list(1:n.sim)
 ####========================= Simluation ==================================####
 for (iter in 1:n.sim) {
   # iter<-1
-  n.train <- 60
-  n.test <- 30
+  n.train <- 200 # 200 or 500
+  n.test <- 1000
   n <- n.train + n.test
   
   # Data generation (3 methods)
   set.seed(iter)
-  # data <- gp.I.linear.K.error(n, error, beta, K, t, seed = iter)
-  data <- gp.I.crss.linear.3.error(n, error, t, seed = iter)
-  # data <- gp.I.nonlinear.3.error(n, error, t, seed = iter)
+  
+  # with covariance = Identity
+  data <- linear.par.K(n, error, beta, K, cov = "I", rho=0, t, seed = iter)
+  # data <- linear.cross.3(n, error, cov = "I", rho=0, t, seed = iter)
+  # data <- nonlinear.par.K(n, error, beta, K, cov = "I", rho=0, t, seed = iter)
+  # data <- nonlinear.cross.3(n, error, cov = "I", rho=0, t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -368,12 +372,13 @@ for (iter in 1:n.sim) {
 summary(warnings())
 
 # Critereon (1) Cross Entropy
+round(pi.fl.result[[1]],digits=3)
+-log(pi.fl.result[[1]][1,])
+test.y[1]
+CRE.fl.result[1]
+CRE.svm.result[1]
 fl.cre<-round(mean(CRE.fl.result),digits = 3)
 svm.cre<-round(mean(CRE.svm.result),digits = 3)
-# median(CRE.fl.result)
-# median(CRE.svm.result)
-# sum(CRE.fl.result)
-# sum(CRE.svm.result)
 
 # Critereon (2) Accuracy
 svm <- matrix(0, ncol = n.sim)
@@ -386,13 +391,6 @@ for(k in 1:n.sim){
 # total number : 50 * 30 = 1500
 svm.acc <- round(mean(svm/n.test), digits = 3)
 fl.acc <- round(mean(flog/n.test), digits = 3)
-
-# print
-paste0("--------------Simulation Result with Error ",error,"--------------")
-paste0("The CRE of Flogistic is ", fl.cre)
-paste0("The CRE of FSVM is ", svm.cre)
-paste0("The accuracy of Flogistic is ", fl.acc)
-paste0("The accuracy of FSVM is ", svm.acc)
 
 # Critereon (3) Distance btw true p & hat p
 predict.p.svm <- as.list(1:n.sim)
@@ -411,6 +409,9 @@ for(i in 1:n.sim){
 # calculate the difference
 diff.svm <- rep(0,n.sim)
 diff.fl <- rep(0,n.sim)
+# w.diff.svm <- rep(0,n.sim)
+# w.diff.fl <- rep(0,n.sim)
+
 
 for (i in 1:n.sim){
   diff.svm[i] <- mean(abs(ans.p[[i]] - predict.p.svm[[i]]))
@@ -420,17 +421,12 @@ for (i in 1:n.sim){
 # print
 paste0("--------------Simulation Result with Error ",error,"--------------")
 paste0("--------------Criterieon (1) CRE --------------")
-paste0("CRE of Flogistic is ", round(fl.cre, digits = 3))
 paste0("CRE of FSVM is ", round(svm.cre, digits = 3))
+paste0("CRE of Flogistic is ", round(fl.cre, digits = 3))
 paste0("--------------Criterieon (2) Accuracy --------------")
-paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
 paste0("Accuracy of FSVM is ", round(svm.acc, digits = 3))
+paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
 paste0("--------------Criterieon (3) p diff --------------")
-# paste0("sum(Diffence) btw true p and svm.predicted p is ", round(sum(diff.svm), digits = 3))
-# paste0("sum(Diffence) btw true p and fl.predicted p is ", round(sum(diff.fl), digits = 3))
 paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(diff.svm), digits = 3))
 paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(diff.fl), digits = 3))
-# paste0("--------------Criterieon (4) KL divergence --------------")
-# paste0("KL Divergence with svm.p is ", round(mean(kl.svm), digits = 3))
-# paste0("KL Divergence with fl.p is ", round(mean(kl.fl), digits = 3))
 
