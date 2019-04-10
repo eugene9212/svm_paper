@@ -48,7 +48,7 @@ nonlinear.cross.3 <- function(n, error, cov, rho, t = seq(0, 1, by = 0.05), seed
   # Create mean vector
   mu.t1 <- sin(3*t)
   mu.t2 <- -sin(3*t)
-  mu.t3 <- sin(t)
+  mu.t3 <- cos(3*t)
   
   # x.list
   x.list <- as.list(1:n)

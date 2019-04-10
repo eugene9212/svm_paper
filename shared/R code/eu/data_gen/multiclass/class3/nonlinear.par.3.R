@@ -1,7 +1,8 @@
 # create Gaussian Process
-linear.par.K <- function(n, error, beta, K, cov, rho, t = seq(0, 1, by = 0.05), seed = 1)
+nonlinear.par.3 <- function(n, error, beta, cov, rho, t = seq(0, 1, by = 0.05), seed = 1)
 {
   set.seed(seed)
+  K <- 3
   
   # Check the Division part
   if (n %% K != 0) message(n, " is not divisible by ",K)
@@ -16,9 +17,6 @@ linear.par.K <- function(n, error, beta, K, cov, rho, t = seq(0, 1, by = 0.05), 
   
   for (i in 1:K){
     y[(num[i]+1):num[i+1]] <- label[i]
-    # create idx for each lable
-    eval(parse(text=paste0(
-      "idx",i," <- (num[",i,"]+1):num[",i,"+1]")))
   }
   ##== Labeling End ==##
   
@@ -44,44 +42,35 @@ linear.par.K <- function(n, error, beta, K, cov, rho, t = seq(0, 1, by = 0.05), 
   # empty x.list
   x.list <- as.list(1:n)
   
-  for (i in 1:K){
-    
-    # mean vector of gaussian process
-    eval(parse(text=paste0(
-      "mu.t",i,"<- t + beta1[",i,"]")))
-    
-    for(j in (num[i]+1):num[i+1]){
-      
-      # assign for each list
-      eval(parse(text=paste0(
-        "x.list[[",j,"]] <- rmvnorm(1, mu.t",i,", Sigma)")))
-    }
+  # Divide index
+  idx1 <- which(y==1)
+  idx2 <- which(y==2)
+  idx3 <- which(y==3)
+  
+  # Create mean vector
+  mu.t1 <- sin(t)+ beta1[1]
+  mu.t2 <- sin(t)+ beta1[2]
+  mu.t3 <- sin(t)+ beta1[3]
+  
+  # x.list
+  x.list <- as.list(1:n)
+  for (i in 1:n) {
+    if(i %in% idx1) x.list[[i]] <- rmvnorm(1, mu.t1, Sigma)
+    else if(i %in% idx2) x.list[[i]] <- rmvnorm(1, mu.t2, Sigma)
+    else if(i %in% idx3) x.list[[i]] <- rmvnorm(1, mu.t3, Sigma)
   }
   
   # Calculate the True p
   true.p <- rep(0,n)
-  
   for(i in 1:n){
-    
-    total <- 0
-    
-    for(j in 1:K){
-      
-    eval(parse(text=paste0(
-      "a",j," <- dmvnorm(x=x.list[[",i,"]], mean = mu.t",j,",log=TRUE)")))
-      
-      for(jj in 1:K){
-      eval(parse(text=paste0(
-        "total <- c(total,exp(a",j,"))")))
-      }
-      
-      total1 <- sum(total)
-    }
-     
-    for(m in 1:K){
-      eval(parse(text=paste0(
-        "if (",i," %in% idx",m,") true.p[",i,"] <- exp(a",m,")/total1")))
-    }
+    a1 <- dmvnorm(x=x.list[[i]], mean = mu.t1,log=TRUE)
+    a2 <- dmvnorm(x=x.list[[i]], mean = mu.t2,log=TRUE)
+    a3 <- dmvnorm(x=x.list[[i]], mean = mu.t3,log=TRUE)
+    total <- exp(a1)+exp(a2)+exp(a3)
+    if (i %in% idx1) true.p[i] <- exp(a1)/total
+    else if (i %in% idx2) true.p[i] <- exp(a2)/total
+    else if (i %in% idx3) true.p[i] <- exp(a3)/total
+    else warning(paste0("No class was assigned for obs ",i))
   }
   
   obj <- list(x = x.list, y = y, t = t, true.p = true.p)

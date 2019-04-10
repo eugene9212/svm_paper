@@ -10,9 +10,9 @@ library(fda.usc)
 
 setwd('C:/Users/eugene/Desktop/SVM/shared/R code/')
 source('eu/data_gen/multiclass/class3/linear.cross.3.R')
-source('eu/data_gen/multiclass/class3/linear.par.K.R')
+source('eu/data_gen/multiclass/class3/linear.par.3.R')
 source('eu/data_gen/multiclass/class3/nonlinear.cross.3.R')
-source('eu/data_gen/multiclass/class3/nonlinear.par.K.R')
+source('eu/data_gen/multiclass/class3/nonlinear.par.3.R')
 
 source('eu/fsvm.prob.R')
 source('eu/predict.fsvm.prob.R')
@@ -37,9 +37,14 @@ t <- seq(0, 1, by = 0.05)
 rangeval <- quantile(t, c(0,1))
 L <- 10
 beta <- 1
-error <- 0.5
+error <- 0.3
 K <- 3
 max.iter <- 100
+
+# Covariance Setting
+# cov <- "I"; rho <- 0
+# cov <- "CS"; rho <- 0.3
+cov <- "AR"; rho <- 0.7
 
 # storage
 ## for test.y
@@ -62,11 +67,11 @@ for (iter in 1:n.sim) {
   # Data generation (3 methods)
   set.seed(iter)
   
-  # with covariance = Identity
-  data <- linear.par.K(n, error, beta, K, cov = "I", rho=0, t, seed = iter)
-  # data <- linear.cross.3(n, error, cov = "I", rho=0, t, seed = iter)
-  # data <- nonlinear.par.K(n, error, beta, K, cov = "I", rho=0, t, seed = iter)
-  # data <- nonlinear.cross.3(n, error, cov = "I", rho=0, t, seed = iter)
+  # with covariance
+  # data <- linear.par.3(n, error, beta, cov = cov, rho=rho, t, seed = iter)
+  # data <- linear.cross.3(n, error, cov = cov, rho=rho, t, seed = iter)
+  # data <- nonlinear.par.3(n, error, beta, cov = cov, rho=rho, t, seed = iter)
+  data <- nonlinear.cross.3(n, error, cov = cov, rho=rho, t, seed = iter)
   
   id <- sample(1:n, n.train)
   
@@ -258,9 +263,13 @@ for (iter in 1:n.sim) {
   # ------------------------------ Simulation on FSVM ----------------------------------------------#
   ####=======================     train data      ===============================####
   # calculate the pi path
-  obj12 <- fsvm.prob(train.x.12, train.y.12, t, L)
-  obj13 <- fsvm.prob(train.x.13, train.y.13, t, L)
-  obj23 <- fsvm.prob(train.x.23, train.y.23, t, L)
+  obj12 <- tryCatch(fsvm.prob(train.x.12, train.y.12, t, L), error = function(e) fsvm.prob(train.x.12, train.y.12, t, L, ridge=1e-3))
+  obj13 <- tryCatch(fsvm.prob(train.x.13, train.y.13, t, L), error = function(e) fsvm.prob(train.x.13, train.y.13, t, L, ridge=1e-3))
+  obj23 <- tryCatch(fsvm.prob(train.x.23, train.y.23, t, L), error = function(e) fsvm.prob(train.x.23, train.y.23, t, L, ridge=1e-3))
+
+  # obj12 <- fsvm.prob(train.x.12, train.y.12, t, L)
+  # obj13 <- fsvm.prob(train.x.13, train.y.13, t, L)
+  # obj23 <- fsvm.prob(train.x.23, train.y.23, t, L)
   
   ####======================= predict probability ===============================####
   obj212 <- predict.fsvm.prob(obj12, test.x)
@@ -372,11 +381,8 @@ for (iter in 1:n.sim) {
 summary(warnings())
 
 # Critereon (1) Cross Entropy
-round(pi.fl.result[[1]],digits=3)
--log(pi.fl.result[[1]][1,])
-test.y[1]
-CRE.fl.result[1]
-CRE.svm.result[1]
+# CRE.fl.result[1]
+# CRE.svm.result[1]
 fl.cre<-round(mean(CRE.fl.result),digits = 3)
 svm.cre<-round(mean(CRE.svm.result),digits = 3)
 
@@ -419,14 +425,11 @@ for (i in 1:n.sim){
 }
 
 # print
-paste0("--------------Simulation Result with Error ",error,"--------------")
-paste0("--------------Criterieon (1) CRE --------------")
-paste0("CRE of FSVM is ", round(svm.cre, digits = 3))
-paste0("CRE of Flogistic is ", round(fl.cre, digits = 3))
-paste0("--------------Criterieon (2) Accuracy --------------")
+paste0("--------------Simulation Result cov=", cov," Error =",error,"--------------")
+paste0("--------------Criterieon (1) Accuracy --------------")
 paste0("Accuracy of FSVM is ", round(svm.acc, digits = 3))
 paste0("Accuracy of Flogistic is ", round(fl.acc, digits = 3))
-paste0("--------------Criterieon (3) p diff --------------")
+paste0("--------------Criterieon (2) p diff --------------")
 paste0("mean(Diffence) btw true p and svm.predicted p is ", round(mean(diff.svm), digits = 3))
 paste0("mean(Diffence) btw true p and fl.predicted p is ", round(mean(diff.fl), digits = 3))
 
